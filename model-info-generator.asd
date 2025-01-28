@@ -11,8 +11,13 @@
   :components  ((:module     "code"
                  :serial     t
                  :components ((:file "package")
+                              (:file "protocol")
                               (:file "meta-model")
                               (:file "input")
+                              ;; Output
+                              (:file "output")
                               (:file "output-xml")
                               (:file "output-java")
+                              (:file "output-go")
+                              ;; Interface
                               (:file "interface")))))

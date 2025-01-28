@@ -4,5 +4,5 @@
   (load-tables version)
   (load-fields version)
 
-  (write-schema version)
-  (emit *tables* #P"~/code/cql/cql-on-omop/src/main/java/OMOP/"))
+  ; (write-schema version)
+  (emit *tables* :go #P"~/code/cql/cql-on-omop-in-go/model/"))

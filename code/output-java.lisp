@@ -9,22 +9,7 @@
         ((a:starts-with-subseq "varchar" omop-type) "String")
         (t                                          omop-type)))
 
-(defmethod emit ((element hash-table) (target pathname))
-  (let ((directory (uiop:ensure-directory-pathname target)))
-    (a:maphash-values
-     (lambda (element)
-       (when (output? element)
-         (let* ((name       (name element))
-                (class-name (translate-class-name name))
-                (pathname   (make-pathname :name class-name :type "java")))
-           (emit element (merge-pathnames pathname directory)))))
-     element)))
-
-(defmethod emit ((element table) (target pathname))
-  (a:with-output-to-file (stream target :if-exists :supersede)
-    (emit element stream)))
-
-(defmethod emit ((element table) (target stream))
+(defmethod emit ((element table) (format (eql :java)) (target stream))
   (let* ((name       (name element))
          (class-name (translate-class-name name))
          (columns    (columns element)))
@@ -89,11 +74,11 @@
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
 
-(defmethod emit ((element column) (target stream))
+(defmethod emit ((element column) (format (eql :java)) (target stream))
   (unless (member (data-type element) '("date" "datetime") :test #'string=)
-    (emit (make-field element) target)
+    (emit (make-field element) format target)
     (format target "~%")
-    (emit (make-getter element) target)
+    (emit (make-getter element) format target)
     (format target "~%")
     (a:when-let ((foreign-key (foreign-key element)))
       (let* ((name           (name element))
@@ -117,7 +102,7 @@
                 data-type method-name field-name)))))
 
 (defstruct (field (:constructor make-field (column))) column)
-(defmethod emit ((element field) (target stream))
+(defmethod emit ((element field) (format (eql :java)) (target stream))
   (let* ((column      (field-column element))
          (name        (name column))
          (method-name (translate-class-name name))
@@ -131,7 +116,7 @@
             name required? data-type field-name)))
 
 (defstruct (getter (:constructor make-getter (column))) column)
-(defmethod emit ((element getter) (target stream))
+(defmethod emit ((element getter) (format (eql :java)) (target stream))
   (let* ((column       (getter-column element))
          (name         (name column))
          (method-name  (translate-class-name name))
