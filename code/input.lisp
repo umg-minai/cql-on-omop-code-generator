@@ -1,36 +1,47 @@
 (cl:in-package #:model-info-generator)
 
+;;; Utilities
+
 (defun read-csv (filename)
   (vellum-csv::csv-to-list (a:read-file-into-string filename) #\, #\" #\"))
 
-(defun load-tables (version)
-  (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
-         (filename  (format nil "OMOP_CDMv~A_Table_Level.csv" version))
-         (pathname  (merge-pathnames filename directory)))
-   (destructuring-bind (header &rest tables) (read-csv pathname)
-     (print header)
-     (mapcar (lambda (table)
-               (destructuring-bind
-                   (name schema required? concept-prefix
-                    measure-person-completeness validation
-                    description &rest rest)
-                   table
-                 (declare (ignore schema required? concept-prefix
-                                  measure-person-completeness
-                                  validation rest))
-                 (let ((description
-                         (when (and description
-                                    (not (string= description "NA")))
-                           description)))
-                  (setf (find-table name)
-                        (make-instance 'table
-                                       :name        name
-                                       :description description)))))
-             tables))))
+;;; Loaders
 
-(defun load-fields (version)
+(defun load-data-model (version)
+  (let ((data-model (make-instance 'data-model :name    "OMOP" ; "OMOP CDM"
+                                               :version version)))
+    (load-tables data-model version)
+    (load-fields data-model version)
+    data-model))
+
+(defun load-tables (data-model version)
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
-         (filename  (format nil "OMOP_CDMv~A_Field_Level.csv" version))
+         (filename  (format nil "OMOP_CDM~A_Table_Level.csv" version))
+         (pathname  (merge-pathnames filename directory)))
+    (destructuring-bind (header &rest tables) (read-csv pathname)
+      (print header)
+      (mapcar (lambda (table)
+                (destructuring-bind
+                    (name schema required? concept-prefix
+                     measure-person-completeness validation
+                     description &rest rest)
+                    table
+                  (declare (ignore schema required? concept-prefix
+                                   measure-person-completeness
+                                   validation rest))
+                  (let ((description
+                          (when (and description
+                                     (not (string= description "NA")))
+                            description)))
+                    (setf (find-table name data-model)
+                          (make-instance 'table
+                                         :name        name
+                                         :description description)))))
+              tables))))
+
+(defun load-fields (data-model version)
+  (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
+         (filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
     (destructuring-bind (header &rest fields) (read-csv pathname)
       (print header)
@@ -42,7 +53,7 @@
                                     &rest rest)
                    field
                  (declare (ignore rest))
-                 (let* ((table       (find-table table-name))
+                 (let* ((table       (find-table table-name data-model))
                         (foreign-key (when (string= foreign-key? "Yes")
                                        (cons (string-downcase foreign-table-name)
                                              (string-downcase foreign-field-name))))
@@ -61,7 +72,7 @@
                (a:when-let ((foreign-key (foreign-key column)))
                  (check-type foreign-key cons)
                  (destructuring-bind (table-name . column-name) foreign-key
-                   (let* ((foreign-table  (find-table table-name))
+                   (let* ((foreign-table  (find-table table-name data-model))
                           (foreign-column (find-column column-name foreign-table))
                           (foreign-key    (make-instance 'foreign-key
                                                          :table  foreign-table

@@ -1,5 +1,13 @@
 (cl:in-package #:model-info-generator)
 
+(defmethod emit ((element data-model)
+                 (format  (eql :go-project))
+                 (target  pathname))
+  (let* ((directory (uiop:ensure-directory-pathname target))
+         (model     (merge-pathnames #P"model/" directory)))
+    (emit element :schema  directory)
+    (emit element :go model)))
+
 ;;; Utilities
 
 (defun emitting-block (continuation stream)
@@ -57,7 +65,9 @@
         ((a:starts-with-subseq "varchar" omop-type) "string")
         (t                                          omop-type)))
 
-(defmethod emit ((element table) (format (eql :go)) (target stream))
+(defmethod emit ((element table)
+                 (format  (eql :go))
+                 (target  stream))
   (let* ((name       (name element))
          (class-name (translate-class-name name))
          (columns    (columns element))
@@ -146,7 +156,9 @@
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
 
-(defmethod emit ((element column) (format (eql :go)) (target stream))
+(defmethod emit ((element column)
+                 (format  (eql :go))
+                 (target  stream))
   (unless (member (data-type element) '("date" "datetime") :test #'string=)
     (format target "~2%")
     (emit (make-field element) format target)
@@ -172,7 +184,9 @@
                 data-type method-name field-name)))))
 
 (defstruct (field (:constructor make-field (column))) column)
-(defmethod emit ((element field) (format (eql :go)) (target stream))
+(defmethod emit ((element field)
+                 (format  (eql :go))
+                 (target  stream))
   (let* ((column      (field-column element))
          (name        (name column))
          (field-name  (translate-class-name name))
@@ -184,7 +198,9 @@
     (emit-field target field-name data-type annotation)))
 
 (defstruct (getter (:constructor make-getter (column))) column)
-(defmethod emit ((element getter) (format (eql :go)) (target stream))
+(defmethod emit ((element getter)
+                 (format  (eql :go))
+                 (target  stream))
   (let* ((column       (getter-column element))
          (name         (name column))
          (method-name  (translate-class-name name))
@@ -199,25 +215,3 @@
                         ~2@Treturn Optional.of(this.~A);~@
                         }~%"
                 data-type method-name field-name))))
-
-
-#|
-
-GenderConcept *Concept `bun:"rel:has-one,join:gender_concept_id=concept_id"`
-
-func (p *Person) EnsureGenderConcept(connection *bun.DB) *Concept {
-	if (p.GenderConcept == (*Concept)(nil)) {
-		gc := &Concept{}
-		error := connection.NewSelect().
-			Model(gc).
-			Where("concept.concept_id = ?", p.GenderConceptId).
-			Scan(context.Background())
-		if error != nil {
-			panic(error)
-		}
-		p.GenderConcept = gc
-	}
-	return p.GenderConcept
-}
-
-|#

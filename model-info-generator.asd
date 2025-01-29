@@ -16,7 +16,7 @@
                               (:file "input")
                               ;; Output
                               (:file "output")
-                              (:file "output-xml")
+                              (:file "output-schema")
                               (:file "output-java")
                               (:file "output-go")
                               ;; Interface

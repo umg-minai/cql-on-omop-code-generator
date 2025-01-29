@@ -1,22 +1,48 @@
 (cl:in-package #:model-info-generator)
 
-;;; Model
+;;; Mixins
 
 (defclass named-mixin ()
-  ((%name :initarg :name
+  ((%name :initarg #1=:name
           :type    string
           :reader  name))
   (:default-initargs
-   :name (a:required-argument :name)))
+   #1# (a:required-argument #1#)))
 
 (defmethod pi:print-items append ((object named-mixin))
   `((:name "~S" ,(name object))))
+
+(defclass version-mixin ()
+  ((%version :initarg  #1=:version
+             :type     string
+             :reader   version))
+  (:default-initargs
+   #1# (a:required-argument #1#)))
+
+(defmethod pi:print-items append ((object version-mixin))
+  `(((:version (:after :name)) " ~S" ,(version object))))
 
 (defclass description-mixin ()
   ((%description :initarg  :description
                  :type     (or null string)
                  :reader   description
                  :initform nil)))
+
+;;; `data-model'
+
+(defclass data-model (pi:print-items-mixin named-mixin version-mixin)
+  ((%tables :reader   tables
+            :initform (make-hash-table :test #'equal))))
+
+(defmethod find-table ((name string) (data-model data-model))
+  (gethash name (tables data-model)))
+
+(defmethod (setf find-table) ((new-value  t)
+                              (name       string)
+                              (data-model data-model))
+  (setf (gethash name (tables data-model)) new-value))
+
+;;; `table'
 
 (defclass table (pi:print-items-mixin
                  description-mixin
@@ -32,6 +58,8 @@
 
 (defmethod (setf find-column) ((new-value t) (name string) (table table))
   (setf (gethash name (%columns table)) new-value))
+
+;;; `column'
 
 (defclass column (pi:print-items-mixin
                   description-mixin
@@ -62,14 +90,6 @@
         (column-name (name (column object))))
     `(((:table-name)                       "~A"  ,table-name)
       ((:column-name (:after :table-name)) ".~A" ,column-name))))
-
-(defvar *tables* (make-hash-table :test #'equal))
-
-(defun find-table (name)
-  (gethash name *tables*))
-
-(defun (setf find-table) (table name)
-  (setf (gethash name *tables*) table))
 
 ;;; TODO: does not belong here
 (defmethod output? ((element table))
