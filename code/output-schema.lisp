@@ -25,6 +25,7 @@
                 (sort (a:hash-table-alist (tables element))
                       #'string< :key #'car))
 
+          ;; Emit descriptions of available CQL contexts.
           (flet ((emit-context (name key-element namespace type)
                    (cxml:with-element* ("ns4" "contextInfo")
                      (cxml:attribute "name"       name)
@@ -34,7 +35,15 @@
                        (cxml:attribute "namespace" namespace)
                        (cxml:attribute "name"      type)))))
             (emit-context "Practitioner" "id" name "Person")
-            (emit-context "Patient"      "id" name "Person")))))))
+            (emit-context "Patient"      "id" name "Person"))
+
+          ;; Emit conversion infos.
+          (flet ((emit-conversion (from to function)
+                   (cxml:with-element* ("ns4" "conversionInfo")
+                     (cxml:attribute "fromType"     from)
+                     (cxml:attribute "toType"       to)
+                     (cxml:attribute "functionName" function))))
+            (emit-conversion "OMOP.Concept" "System.Concept" "OMOPHelpers.ToConcept")))))))
 
 (defmethod emit ((element table) (format (eql :schema)) (target t))
   (cxml:with-element* ("ns4" "typeInfo")
