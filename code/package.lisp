@@ -4,4 +4,27 @@
 
   (:local-nicknames
    (#:a  #:alexandria)
-   (#:pi #:utilities.print-items)))
+   (#:pi #:utilities.print-items))
+
+  (:export
+   #:name
+
+   #:data-model
+   #:tables
+
+   #:table
+   #:columns
+
+   #:column
+   #:data-type
+   #:primary-key?
+   #:required?
+   #:foreign-key
+
+   #:foreign-key
+   #:table
+   #:column)
+
+  (:export
+   #:emit
+   #:output?))

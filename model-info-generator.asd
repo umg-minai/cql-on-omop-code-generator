@@ -18,6 +18,12 @@
                               (:file "output")
                               (:file "output-schema")
                               (:file "output-java")
-                              (:file "output-go")
                               ;; Interface
-                              (:file "interface")))))
+                              (:file "interface")))
+
+                (:module     "go"
+                 :pathname   "code/go"
+                 :serial     t
+                 :components ((:file "syntax")
+                              (:file "package")
+                              (:file "output")))))
