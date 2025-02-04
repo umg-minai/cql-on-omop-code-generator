@@ -70,8 +70,8 @@
                  (cxml:with-element* ("ns4" "elementTypeSpecifier")
                    (cxml:attribute "elementType" "OMOP.Concept")
                    (cxml:attribute "xsi:type"    "ns4:ListTypeSpecifier")))))
-        (emit-relation "ancestors")
-        (emit-relation "descendants")))
+        (emit-relation "Ancestors")
+        (emit-relation "Descendants")))
 
     (map nil (a:rcurry #'emit format target) (columns element))))
 
@@ -81,15 +81,17 @@
 (defmethod emit ((element column) (format (eql :schema)) (target t))
   (let ((name (name element)))
     (cxml:with-element* ("ns4" "element")
-      (cxml:attribute "name" (translate-column-name name))
+      (cxml:attribute "name" (translate-class-name name))
       (cxml:attribute "type" (translate-type (data-type element))))
 
+    ;; If there is a foreign key, emit a property for accessing the
+    ;; other end of the relation.
     (a:when-let ((foreign-key (foreign-key element)))
       (let ((name      (without-id name))
             (data-type (format nil "OMOP.~A" ; TODO: do this properly
                                (translate-class-name (name (table foreign-key))))))
         (cxml:with-element* ("ns4" "element")
-          (cxml:attribute "name" (translate-column-name name))
+          (cxml:attribute "name" (translate-class-name name))
           (cxml:attribute "type" data-type))))))
 
 (defun translate-column-name (omop-name)
