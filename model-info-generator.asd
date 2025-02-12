@@ -21,6 +21,12 @@
                               ;; Interface
                               (:file "interface")))
 
+                (:module     "java"
+                 :pathname   "code/java"
+                 :serial     t
+                 :components ((:file "package")
+                              (:file "output")))
+
                 (:module     "go"
                  :pathname   "code/go"
                  :serial     t

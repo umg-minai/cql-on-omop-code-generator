@@ -1,4 +1,10 @@
-(cl:in-package #:model-info-generator)
+(cl:in-package #:model-info-generator.java)
+
+(defun translate-class-name (omop-name)
+  (remove #\_ (string-capitalize omop-name)))
+
+(defun translate-column-name (omop-name)
+  (string-downcase (remove #\_ (string-capitalize omop-name)) :end 1))
 
 (defun java-type<-omop-type (omop-type)
   (cond ((string= omop-type "date")                 "Date")
@@ -9,10 +15,10 @@
         ((a:starts-with-subseq "varchar" omop-type) "String")
         (t                                          omop-type)))
 
-(defmethod emit ((element table) (format (eql :java)) (target stream))
-  (let* ((name       (name element))
+(defmethod mi:emit ((element mi:table) (format (eql :java)) (target stream))
+  (let* ((name       (mi:name element))
          (class-name (translate-class-name name))
-         (columns    (columns element)))
+         (columns    (mi:columns element)))
     (format target "package OMOP;~@
                   ~@
                   import java.util.List;~@
@@ -34,13 +40,13 @@
                   "
             name class-name)
     (pprint-logical-block (target (list element) :per-line-prefix "  ")
-      (map nil (a:rcurry #'emit target) columns)
-      (a:when-let ((id (find-if #'primary-key? columns)))
+      (map nil (a:rcurry #'mi:emit format target) columns)
+      (a:when-let ((id (find-if #'mi:primary-key? columns)))
         (format target "@Override~@
                         public String toString() {~@
                         ~2@Treturn \"~A{id=\" + this.~A + \"}\";~@
                         }~2%"
-                class-name (translate-column-name (name id))))
+                class-name (translate-column-name (mi:name id))))
 
       (when (string= name "concept")
         (flet ((emit-relation (name forward-join-column inverse-join-column)
@@ -74,19 +80,19 @@
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
 
-(defmethod emit ((element column) (format (eql :java)) (target stream))
-  (unless (member (data-type element) '("date" "datetime") :test #'string=)
-    (emit (make-field element) format target)
+(defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
+  (unless (member (mi:data-type element) '("date" "datetime") :test #'string=)
+    (mi:emit (make-field element) format target)
     (format target "~%")
-    (emit (make-getter element) format target)
+    (mi:emit (make-getter element) format target)
     (format target "~%")
-    (a:when-let ((foreign-key (foreign-key element)))
-      (let* ((name           (name element))
+    (a:when-let ((foreign-key (mi:foreign-key element)))
+      (let* ((name           (mi:name element))
              (base-name      (without-id name))
              (method-name    (translate-class-name base-name))
              (field-name     (string-downcase method-name :end 1))
-             (foreign-table  (table foreign-key))
-             (foreign-table-name (name foreign-table))
+             (foreign-table  (mi:table foreign-key))
+             (foreign-table-name (mi:name foreign-table))
                                         ; (foreign-column (column foreign-key))
              (data-type      (translate-class-name foreign-table-name)))
         (format target "@ManyToOne(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
@@ -102,27 +108,27 @@
                 data-type method-name field-name)))))
 
 (defstruct (field (:constructor make-field (column))) column)
-(defmethod emit ((element field) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element field) (format (eql :java)) (target stream))
   (let* ((column      (field-column element))
-         (name        (name column))
+         (name        (mi:name column))
          (method-name (translate-class-name name))
          (field-name  (string-downcase method-name :end 1))
-         (data-type   (java-type<-omop-type (data-type column)))
-         (required?   (required? column)))
-    (when (primary-key? column)
-        (format target "@Id~%"))
+         (data-type   (java-type<-omop-type (mi:data-type column)))
+         (required?   (mi:required? column)))
+    (when (mi:primary-key? column)
+      (format target "@Id~%"))
     (format target "@Column(name = \"~A\", insertable = false, updatable = false~:[~;, nullable = false~])~@
                     private ~A ~A;~%"
             name required? data-type field-name)))
 
 (defstruct (getter (:constructor make-getter (column))) column)
-(defmethod emit ((element getter) (format (eql :java)) (target stream))
-  (let* ((column       (getter-column element))
-         (name         (name column))
-         (method-name  (translate-class-name name))
-         (field-name   (string-downcase method-name :end 1))
-         (data-type   (java-type<-omop-type (data-type column))))
-    (if (required? column)
+(defmethod mi:emit ((element getter) (format (eql :java)) (target stream))
+  (let* ((column      (getter-column element))
+         (name        (mi:name column))
+         (method-name (translate-class-name name))
+         (field-name  (string-downcase method-name :end 1))
+         (data-type   (java-type<-omop-type (mi:data-type column))))
+    (if (mi:required? column)
         (format target "public ~A get~A() {~@
                         ~2@Treturn this.~A;~@
                         }~%"
