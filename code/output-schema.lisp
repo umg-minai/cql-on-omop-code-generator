@@ -9,7 +9,7 @@
          (filename  (format nil "~A~A" name version))
          (filename  (make-pathname :name filename :type "xml"))
          (pathname  (merge-pathnames filename directory)))
-    (a:with-output-to-file (stream pathname :if-exists :supersede) ;TODO: version
+    (a:with-output-to-file (stream pathname :if-exists :supersede)
       (cxml:with-xml-output (cxml:make-character-stream-sink stream :indentation 4)
         (cxml:with-element* ("ns4" "modelInfo")
           (cxml:attribute "xmlns:xsi" "http://www.w3.org/2001/XMLSchema-instance")
@@ -56,12 +56,15 @@
       (cxml:attribute "description" description))
 
     ;; Primary code path for condition occurrence
-    (when (string= (name element) "condition_occurrence")
-      (let ((code (find-column "condition_concept_id" element)))
-        (assert code)
-        (cxml:attribute "primaryCodePath" (translate-column-name
-                                           (without-id
-                                               (name code))))))
+    (flet ((primary-code-path (column-name)
+             (let* ((column (find-column column-name element))
+                    (path   (translate-column-name
+                             (without-id (name column)))))
+               (cxml:attribute "primaryCodePath" path))))
+      (cond ((string= (name element) "condition_occurrence")
+             (primary-code-path "condition_concept_id"))
+            ((string= (name element) "drug_exposure")
+             (primary-code-path "drug_concept_id"))))
 
     (when (string= (name element) "concept")
       (flet ((emit-relation (name)
