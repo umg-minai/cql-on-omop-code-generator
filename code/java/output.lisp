@@ -7,8 +7,8 @@
   (string-downcase (remove #\_ (string-capitalize omop-name)) :end 1))
 
 (defun java-type<-omop-type (omop-type)
-  (cond ((string= omop-type "date")                 "Date")
-        ((string= omop-type "datetime")             "DateTime")
+  (cond ((string= omop-type "date")                 "ZonedDateTime")
+        ((string= omop-type "datetime")             "ZonedDateTime")
         ((or (string= omop-type "integer")
              (string= omop-type "Integer"))         "Integer")
         ((string= omop-type "float")                "Float")
@@ -21,6 +21,7 @@
          (columns    (mi:columns element)))
     (format target "package OMOP;~@
                   ~@
+                  import java.time.ZonedDateTime;~@
                   import java.util.List;~@
                   import java.util.Optional;~@
                   import jakarta.persistence.Entity;~@
@@ -32,6 +33,8 @@
                   import jakarta.persistence.ManyToMany;~@
                   import jakarta.persistence.Table;~@
                   import jakarta.persistence.Column;~@
+                  import org.opencds.cqf.cql.engine.runtime.DateTime;~@
+                  import org.opencds.cqf.cql.engine.runtime.Date;~@
                   ~@
                   @Entity~@
                   @Table(name = \"~A\", schema = \"cds_cdm\")~@
@@ -81,31 +84,46 @@
                  (subseq name (+ index 3)))))
 
 (defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
-  (unless (member (mi:data-type element) '("date" "datetime") :test #'string=)
-    (mi:emit (make-field element) format target)
-    (format target "~%")
-    (mi:emit (make-getter element) format target)
-    (format target "~%")
-    (a:when-let ((foreign-key (mi:foreign-key element)))
-      (let* ((name           (mi:name element))
-             (base-name      (without-id name))
-             (method-name    (translate-class-name base-name))
-             (field-name     (string-downcase method-name :end 1))
-             (foreign-table  (mi:table foreign-key))
-             (foreign-table-name (mi:name foreign-table))
+  (mi:emit (make-field element) format target)
+  (format target "~%")
+  (let ((getter (cond ((string= (mi:data-type element) "datetime")
+                       (make-getter
+                        element
+                        :type       "DateTime"
+                        :conversion (lambda (value)
+                                      (format nil "new DateTime(~A.toOffsetDateTime())"
+                                              value))))
+                      ((string= (mi:data-type element) "date")
+                       (make-getter
+                        element
+                        :type       "Date"
+                        :conversion (lambda (value)
+                                      (format nil "new Date(~A.toLocalDate())"
+                                              value))))
+                      (t
+                       (make-getter element)))))
+   (mi:emit getter format target))
+  (format target "~%")
+  (a:when-let ((foreign-key (mi:foreign-key element)))
+    (let* ((name           (mi:name element))
+           (base-name      (without-id name))
+           (method-name    (translate-class-name base-name))
+           (field-name     (string-downcase method-name :end 1))
+           (foreign-table  (mi:table foreign-key))
+           (foreign-table-name (mi:name foreign-table))
                                         ; (foreign-column (column foreign-key))
-             (data-type      (translate-class-name foreign-table-name)))
-        (format target "@ManyToOne(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
-                          @JoinColumn(name = \"~A\")~@
-                          private ~A ~A;~2%"
-                ;; , table = \"~A\", referencedColumnName = \"~A\"
-                data-type
-                name ;; foreign-table-name (name foreign-column)
-                data-type field-name)
-        (format target "public Optional<~A> get~A() {~@
+           (data-type      (translate-class-name foreign-table-name)))
+      (format target "@ManyToOne(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
+                      @JoinColumn(name = \"~A\")~@
+                      private ~A ~A;~2%"
+              ;; , table = \"~A\", referencedColumnName = \"~A\"
+              data-type
+              name ;; foreign-table-name (name foreign-column)
+              data-type field-name)
+      (format target "public Optional<~A> get~A() {~@
                           ~2@Treturn Optional.of(this.~A);~@
                           }~%"
-                data-type method-name field-name)))))
+              data-type method-name field-name))))
 
 (defstruct (field (:constructor make-field (column))) column)
 (defmethod mi:emit ((element field) (format (eql :java)) (target stream))
@@ -121,19 +139,33 @@
                     private ~A ~A;~%"
             name required? data-type field-name)))
 
-(defstruct (getter (:constructor make-getter (column))) column)
+(defstruct (getter
+            (:constructor
+                make-getter (column
+                             &key (type       (java-type<-omop-type
+                                               (mi:data-type column)))
+                                  (conversion 'identity))))
+  column type conversion)
 (defmethod mi:emit ((element getter) (format (eql :java)) (target stream))
-  (let* ((column      (getter-column element))
-         (name        (mi:name column))
-         (method-name (translate-class-name name))
-         (field-name  (string-downcase method-name :end 1))
-         (data-type   (java-type<-omop-type (mi:data-type column))))
+  (let* ((column       (getter-column element))
+         (return-type  (getter-type element))
+         (conversion   (getter-conversion element))
+         (name         (mi:name column))
+         (method-name  (translate-class-name name))
+         (field-name   (string-downcase method-name :end 1))
+         (field-access (format nil "this.~A" field-name)))
     (if (mi:required? column)
         (format target "public ~A get~A() {~@
-                        ~2@Treturn this.~A;~@
+                        ~2@Treturn ~A;~@
                         }~%"
-                data-type method-name field-name)
+                return-type method-name
+                (funcall conversion field-access))
         (format target "public Optional<~A> get~A() {~@
-                        ~2@Treturn Optional.of(this.~A);~@
+                        ~2@Tif (this.~A != null) {~@
+                        ~4@Treturn Optional.of(~A);~@
+                        ~2@T} else {~@
+                        ~4@Treturn Optional.empty();~@
+                        ~2@T}~@
                         }~%"
-                data-type method-name field-name))))
+                return-type method-name field-name
+                (funcall conversion field-access)))))

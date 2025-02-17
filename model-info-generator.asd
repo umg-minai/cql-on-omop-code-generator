@@ -17,7 +17,6 @@
                               ;; Output
                               (:file "output")
                               (:file "output-schema")
-                              (:file "output-java")
                               ;; Interface
                               (:file "interface")))
 
