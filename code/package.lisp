@@ -9,11 +9,17 @@
   (:export
    #:name
 
+   #:version
+
+   #:parent
+
    #:data-model
    #:tables
 
    #:table
    #:columns
+   #:find-column
+   #:primary-key
 
    #:column
    #:data-type

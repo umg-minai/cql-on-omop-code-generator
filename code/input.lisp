@@ -44,7 +44,6 @@
          (filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
     (destructuring-bind (header &rest fields) (read-csv pathname)
-      (print header)
       (flet ((parse-field (field)
                (destructuring-bind (table-name field-name required? data-type
                                     user-guidance etl-conventions
@@ -62,7 +61,6 @@
                         (column      (make-instance 'column
                                                     :name         field-name
                                                     :description  description
-                                                    :table        table
                                                     :required?    (string= required? "yes")
                                                     :data-type    data-type
                                                     :primary-key? (string= primary-key? "Yes")
@@ -75,6 +73,7 @@
                    (let* ((foreign-table  (find-table table-name data-model))
                           (foreign-column (find-column column-name foreign-table))
                           (foreign-key    (make-instance 'foreign-key
+                                                         :parent column
                                                          :table  foreign-table
                                                          :column foreign-column)))
                      (reinitialize-instance column :foreign-key foreign-key))))))

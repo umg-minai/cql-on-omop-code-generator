@@ -22,6 +22,11 @@
 (defmethod pi:print-items append ((object version-mixin))
   `(((:version (:after :name)) " ~S" ,(version object))))
 
+(defclass parented-mixin ()
+  ((%parent :initarg  :parent
+            :accessor parent
+            :initform nil)))
+
 (defclass description-mixin ()
   ((%description :initarg  :description
                  :type     (or null string)
@@ -40,12 +45,14 @@
 (defmethod (setf find-table) ((new-value  t)
                               (name       string)
                               (data-model data-model))
-  (setf (gethash name (tables data-model)) new-value))
+  (setf (parent new-value)                 data-model
+        (gethash name (tables data-model)) new-value))
 
 ;;; `table'
 
 (defclass table (pi:print-items-mixin
                  description-mixin
+                 parented-mixin
                  named-mixin)
   ((%columns :reader   %columns
              :initform (make-hash-table :test #'equal))))
@@ -57,15 +64,19 @@
   (gethash name (%columns table)))
 
 (defmethod (setf find-column) ((new-value t) (name string) (table table))
-  (setf (gethash name (%columns table)) new-value))
+  (setf (parent new-value)              table
+        (gethash name (%columns table)) new-value))
+
+(defmethod primary-key ((table table))
+  (find-if #'primary-key? (a:hash-table-values (%columns table))))
 
 ;;; `column'
 
 (defclass column (pi:print-items-mixin
                   description-mixin
+                  parented-mixin
                   named-mixin)
-  ((%table        :initarg  :table
-                  :reader   table)
+  ((%parent       :reader   table)
    (%required?    :initarg  :required?
                   :reader   required?)
    (%data-type    :initarg  :data-type
@@ -79,7 +90,8 @@
 (defmethod pi:print-items append ((object column))
   `(((:type (:after :name)) ":~A" ,(data-type object))))
 
-(defclass foreign-key (pi:print-items-mixin)
+(defclass foreign-key (pi:print-items-mixin
+                       parented-mixin)
   ((%table  :initarg :table
             :reader  table)
    (%column :initarg :column
