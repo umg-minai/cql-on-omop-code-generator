@@ -23,7 +23,8 @@
                 (:module     "java"
                  :pathname   "code/java"
                  :serial     t
-                 :components ((:file "package")
+                 :components ((:file "syntax")
+                              (:file "package")
                               (:file "output")))
 
                 (:module     "go"

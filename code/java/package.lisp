@@ -5,4 +5,6 @@
   (:local-nicknames
    (#:a  #:alexandria)
 
-   (#:mi #:model-info-generator)))
+   (#:mi #:model-info-generator)
+
+   (#:j  #:model-info-generator.java.syntax)))
