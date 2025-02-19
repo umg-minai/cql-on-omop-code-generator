@@ -150,7 +150,7 @@
               name ;; foreign-table-name (name foreign-column)
               data-type field-name)
       (format target "public Optional<~A> get~A() {~@
-                          ~2@Treturn Optional.of(this.~A);~@
+                          ~2@Treturn Optional.ofNullable(this.~A);~@
                           }~%"
               data-type method-name field-name))))
 
