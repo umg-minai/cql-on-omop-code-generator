@@ -7,10 +7,9 @@
    (lambda (element)
      (when (output? element)
        (let* ((name       (name element))
-              (class-name (translate-class-name name))
+              (filename   (filename<-omop-table format name))
               (type       (string-downcase format))
-              (filename   (make-pathname :name class-name
-                                         :type type))
+              (filename   (make-pathname :name filename :type type))
               (pathname   (merge-pathnames filename target)))
          (emit element format pathname))))
    (tables element)))

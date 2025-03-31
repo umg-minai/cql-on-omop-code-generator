@@ -1,10 +1,20 @@
 (cl:in-package #:model-info-generator.java)
 
-;;; Utilities
+;;; Names
 
+(defmethod mi::filename<-omop-table ((format     (eql :java))
+                                     (omop-table string))
+  (remove #\_ (string-capitalize omop-table)))
+
+(defmethod mi::cql-type<-omop-table ((format     (eql :java))
+                                     (omop-table string))
+  (remove #\_ (string-capitalize omop-table)))
 (defun translate-class-name (omop-name)
   (remove #\_ (string-capitalize omop-name)))
 
+(defmethod mi::cql-element<-omop-column ((format      (eql :java))
+                                         (omop-column string))
+  (string-downcase (remove #\_ (string-capitalize omop-column)) :end 1))
 (defun translate-column-name (omop-name)
   (string-downcase (remove #\_ (string-capitalize omop-name)) :end 1))
 
@@ -37,10 +47,11 @@
                                          #P"src/java/main/OMOP/"
                                          directory)
                                    :from-end t)))
-    (ensure-directories-exist schema-directory)
-    (mi:emit element :schema  schema-directory)
+    (let ((schema-format (make-instance 'mi::schema-format :associated-format :java)))
+      (ensure-directories-exist schema-directory)
+      (mi:emit element schema-format schema-directory))
     (ensure-directories-exist model-directory) ; TODO: who should do this?
-    (mi:emit element :java    model-directory)))
+    (mi:emit element :java model-directory)))
 
 ;;;
 
@@ -64,7 +75,8 @@
                (lambda (table)
                  (when (mi:primary-key table)
                    (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
-                          (translate-class-name (mi:name table)))))
+                          (mi::cql-type<-omop-table
+                           format (mi:name table)))))
                (mi:tables element)))))))))
 
 ;;; Emit a CLASSInfo class for model class CLASS which has additional
@@ -77,7 +89,7 @@
 (defmethod mi:emit ((element mi:table) (format (eql :java)) (target stream))
   (let* ((meta-model (mi:parent element))
          (name       (mi:name element))
-         (class-name (translate-class-name name))
+         (class-name (mi::cql-type<-omop-table format name))
          (columns    (mi:columns element))
          (concept?   (string= name "concept")))
     (j:emitting (target)
@@ -105,32 +117,36 @@
              name class-name)
 
       (pprint-logical-block (target (list element) :per-line-prefix "  ")
-        (map nil (a:rcurry #'mi:emit format target) columns)
-        (a:when-let ((id (find-if #'mi:primary-key? columns)))
+        (j:emitting (target)
+          (map nil (a:rcurry #'mi:emit format target) columns)
+          (j:out "~%")
+          (a:when-let ((id (find-if #'mi:primary-key? columns)))
 
-          (j:out "@Override~%")
-          (j:method ("toString" '() "String")
-            (j:out "final var result = new StringBuilder();~@:_~
+            (j:out "@Override~%")
+            (j:method ("toString" '() "String")
+              (j:out "final var result = new StringBuilder();~@:_~
                     result.append(\"~A{id=\").append(this.~A);~@:_"
-                   class-name (translate-column-name (mi:name id)))
-            (when concept?
-              (j:out "result.append(\", name=')~@:_~
+                     class-name (mi::cql-element<-omop-column
+                                 format (mi:name id)))
+              (when concept?
+                (j:out "result.append(\", name=')~@:_~
                       ~2@T.append(this.getConceptName().get())~@:_~
                       ~2@T.append(\"'\");"))
-            (a:when-let ((concept (mi::canonical-concept-column element)))
-              (j:out "this.get~A().ifPresent(concept -> {~@:_~
+              (a:when-let ((concept (mi::canonical-concept-column element)))
+                (j:out "this.get~A().ifPresent(concept -> {~@:_~
                       ~2@Tresult.append(\", concept '\")~@:_~
                       ~2@T.append(concept.getConceptName().get())~@:_~
                       ~2@T.append(\"'\");~@:_~
                       });~@:_"
-                     (translate-class-name (without-id (mi:name concept)))))
-            (j:out "result.append(\"}\");~@:_~
+                       (mi::cql-type<-omop-table
+                        format (without-id (mi:name concept)))))
+              (j:out "result.append(\"}\");~@:_~
                     return result.toString();")))
 
-        (when concept?
-          (flet ((emit-relation (name forward-join-column inverse-join-column)
-                   (let ((method-name (string-capitalize name :end 1)))
-                     (format target "@ManyToMany(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
+          (when concept?
+            (flet ((emit-relation (name forward-join-column inverse-join-column)
+                     (let ((method-name (string-capitalize name :end 1)))
+                       (format target "@ManyToMany(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
                         @JoinTable(name=\"concept_ancestor\", schema=\"cds_cdm\",~@
                         ~2@TjoinColumns = {~@
                         ~2@T~2@T@JoinColumn(name=\"~A\")~@
@@ -144,12 +160,12 @@
                         public List<Concept> get~A() {~@
                         ~2@Treturn this.~A;~@
                         }~2%"
-                             class-name
-                             forward-join-column inverse-join-column
-                             name
-                             method-name name))))
-            (emit-relation "ancestors"   "descendant_concept_id" "ancestor_concept_id")
-            (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id")))))
+                               class-name
+                               forward-join-column inverse-join-column
+                               name
+                               method-name name))))
+              (emit-relation "ancestors"   "descendant_concept_id" "ancestor_concept_id")
+              (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id"))))))
 
     (format target "~%}~%")))
 
@@ -177,12 +193,14 @@
   (a:when-let ((foreign-key (mi:foreign-key element)))
     (let* ((name           (mi:name element))
            (base-name      (without-id name))
-           (method-name    (translate-class-name base-name))
+           (method-name    (mi::cql-element<-omop-column
+                            format base-name))
            (field-name     (string-downcase method-name :end 1))
            (foreign-table  (mi:table foreign-key))
            (foreign-table-name (mi:name foreign-table))
                                         ; (foreign-column (column foreign-key))
-           (data-type      (translate-class-name foreign-table-name)))
+           (data-type      (mi::cql-type<-omop-table
+                            format foreign-table-name)))
       (format target "@ManyToOne(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
                       @JoinColumn(name = \"~A\")~@
                       private ~A ~A;~2%"
@@ -199,7 +217,7 @@
 (defmethod mi:emit ((element field) (format (eql :java)) (target stream))
   (let* ((column      (field-column element))
          (name        (mi:name column))
-         (method-name (translate-class-name name))
+         (method-name (mi::cql-element<-omop-column format name))
          (field-name  (string-downcase method-name :end 1))
          (data-type   (java-type<-omop-type (mi:data-type column)))
          (required?   (mi:required? column)))
@@ -221,7 +239,7 @@
          (return-type  (getter-type element))
          (conversion   (getter-conversion element))
          (name         (mi:name column))
-         (method-name  (translate-class-name name))
+         (method-name  (mi::cql-element<-omop-column format name))
          (field-name   (string-downcase method-name :end 1))
          (field-access (format nil "this.~A" field-name)))
     (if (mi:required? column)
@@ -254,7 +272,7 @@
                     (target  pathname))
   (let* ((table      (data-type-info-table element))
          (name       (mi:name table))
-         (class-name (translate-class-name name))
+         (class-name (mi::cql-type<-omop-table format name))
          (info-class-name (format nil "~AInfo" class-name))
          (filename        (merge-pathnames
                            (make-pathname :name info-class-name
@@ -269,7 +287,7 @@
   (let* ((table      (data-type-info-table element))
          (name       (mi:name table))
          (columns    (mi:columns table))
-         (class-name (translate-class-name name))
+         (class-name (mi::cql-type<-omop-table format name))
          (info-class-name (format nil "~AInfo" class-name)))
     (j:emitting (target)
       (j:out "package OMOP.~A;~2%" "v54" ; TODO: (mi:version (mi:parent table))
@@ -303,4 +321,5 @@
                        :for name   =   (mi:name column)
                        :when (and (a:ends-with-subseq "concept_id" name) ; TODO: make a function
                                   (equal (mi:data-type column) "integer"))
-                         :collect (translate-column-name (without-id name)))))))))
+                         :collect (mi::cql-element<-omop-column
+                                   format (without-id name)))))))))
