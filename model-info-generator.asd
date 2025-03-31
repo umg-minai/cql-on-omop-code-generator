@@ -13,6 +13,7 @@
                  :components ((:file "package")
                               (:file "protocol")
                               (:file "meta-model")
+                              (:file "predicates")
                               (:file "input")
                               ;; Output
                               (:file "output")

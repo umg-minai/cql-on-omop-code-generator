@@ -1,5 +1,11 @@
 (cl:in-package #:model-info-generator)
 
+(defun without-id (name)
+  (let ((index (search "_id" name)))
+    (concatenate 'string
+                 (subseq name 0 index)
+                 (subseq name (+ index 3)))))
+
 (defmethod emit ((element data-model)
                  (format  (eql :schema))
                  (target  pathname))
@@ -56,15 +62,10 @@
       (cxml:attribute "description" description))
 
     ;; Primary code path for condition occurrence
-    (flet ((primary-code-path (column-name)
-             (let* ((column (find-column column-name element))
-                    (path   (translate-column-name
-                             (without-id (name column)))))
-               (cxml:attribute "primaryCodePath" path))))
-      (cond ((string= (name element) "condition_occurrence")
-             (primary-code-path "condition_concept_id"))
-            ((string= (name element) "drug_exposure")
-             (primary-code-path "drug_concept_id"))))
+    (a:when-let ((concept-column (canonical-concept-column element)))
+      (let ((path (translate-column-name
+                   (without-id (name concept-column)))))
+        (cxml:attribute "primaryCodePath" path)))
 
     (when (string= (name element) "concept")
       (flet ((emit-relation (name)
