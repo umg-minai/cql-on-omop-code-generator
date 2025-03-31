@@ -25,6 +25,28 @@
 
 ;;;
 
+(defmethod mi:emit ((element mi:data-model)
+                    (format  (eql :java-project))
+                    (target  pathname))
+  (let* ((directory         (uiop:ensure-directory-pathname target))
+         (schema-directory  (merge-pathnames #P"src/java/main/resources/" directory))
+         (version           (remove #\. (mi:version element)))
+         (version-directory (make-pathname :directory (list :relative version)))
+         (model-directory   (reduce #'merge-pathnames
+                                   (list version-directory
+                                         #P"src/java/main/OMOP/"
+                                         directory)
+                                   :from-end t)))
+    (ensure-directories-exist schema-directory)
+    (mi:emit element :schema  schema-directory)
+    (ensure-directories-exist model-directory) ; TODO: who should do this?
+    (mi:emit element :java    model-directory)))
+
+;;;
+
+;;; Emit a Register class which provides a static method for
+;;; registering all classes of one OMOP version in a provided
+;;; MappingInfo instance.
 (defmethod mi:emit :after ((element mi:data-model)
                            (format  (eql :java))
                            (target  pathname))
@@ -45,51 +67,70 @@
                           (translate-class-name (mi:name table)))))
                (mi:tables element)))))))))
 
+;;; Emit a CLASSInfo class for model class CLASS which has additional
+;;; information about CLASS such as the names of joinable fields for
+;;; code-based query restrictions.
 (defmethod mi:emit ((element mi:table) (format (eql :java)) (target pathname))
   (call-next-method)
   (mi:emit (make-data-type-info element) format target))
 
 (defmethod mi:emit ((element mi:table) (format (eql :java)) (target stream))
-  (let* ((name       (mi:name element))
+  (let* ((meta-model (mi:parent element))
+         (name       (mi:name element))
          (class-name (translate-class-name name))
-         (columns    (mi:columns element)))
-    (format target "package OMOP.~A;~@
-                  ~@
-                  import java.time.ZonedDateTime;~@
-                  import java.util.List;~@
-                  import java.util.Optional;~@
-                  import jakarta.persistence.Entity;~@
-                  import jakarta.persistence.FetchType;~@
-                  import jakarta.persistence.Id;~@
-                  import jakarta.persistence.JoinColumn;~@
-                  import jakarta.persistence.JoinTable;~@
-                  import jakarta.persistence.ManyToOne;~@
-                  import jakarta.persistence.ManyToMany;~@
-                  import jakarta.persistence.Table;~@
-                  import jakarta.persistence.Column;~@
-                  import org.opencds.cqf.cql.engine.runtime.DateTime;~@
-                  import org.opencds.cqf.cql.engine.runtime.Date;~@
-                  ~@
-                  @Entity~@
-                  @Table(name = \"~A\", schema = \"cds_cdm\")~@
-                  public class ~A {~@
-                  ~@
-                  "
-            "v54" ; TODO: get this from meta model
-            name class-name)
-    (pprint-logical-block (target (list element) :per-line-prefix "  ")
-      (map nil (a:rcurry #'mi:emit format target) columns)
-      (a:when-let ((id (find-if #'mi:primary-key? columns)))
-        (format target "@Override~@
-                        public String toString() {~@
-                        ~2@Treturn \"~A{id=\" + this.~A + \"}\";~@
-                        }~2%"
-                class-name (translate-column-name (mi:name id))))
+         (columns    (mi:columns element))
+         (concept?   (string= name "concept")))
+    (j:emitting (target)
+      (j:out "package OMOP.~A;~2%" (remove #\. (mi:version meta-model)))
+      (j:out "import java.time.ZonedDateTime;~@
+              import java.util.List;~@
+              import java.util.Optional;~@
+              import jakarta.persistence.Entity;~@
+              import jakarta.persistence.FetchType;~@
+              import jakarta.persistence.Id;~@
+              import jakarta.persistence.JoinColumn;~@
+              import jakarta.persistence.JoinTable;~@
+              import jakarta.persistence.ManyToOne;~@
+              import jakarta.persistence.ManyToMany;~@
+              import jakarta.persistence.Table;~@
+              import jakarta.persistence.Column;~@
+              import org.opencds.cqf.cql.engine.runtime.DateTime;~@
+              import org.opencds.cqf.cql.engine.runtime.Date;~2%")
 
-      (when (string= name "concept")
-        (flet ((emit-relation (name forward-join-column inverse-join-column)
-                 (let ((method-name (string-capitalize name :end 1)))
-                  (format target "@ManyToMany(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
+      (j:out "@Entity~@
+              @Table(name = \"~A\", schema = \"cds_cdm\")~@
+              public class ~A {~@
+              ~@
+              "
+             name class-name)
+
+      (pprint-logical-block (target (list element) :per-line-prefix "  ")
+        (map nil (a:rcurry #'mi:emit format target) columns)
+        (a:when-let ((id (find-if #'mi:primary-key? columns)))
+
+          (j:out "@Override~%")
+          (j:method ("toString" '() "String")
+            (j:out "final var result = new StringBuilder();~@:_~
+                    result.append(\"~A{id=\").append(this.~A);~@:_"
+                   class-name (translate-column-name (mi:name id)))
+            (when concept?
+              (j:out "result.append(\", name=')~@:_~
+                      ~2@T.append(this.getConceptName().get())~@:_~
+                      ~2@T.append(\"'\");"))
+            (a:when-let ((concept (mi::canonical-concept-column element)))
+              (j:out "this.get~A().ifPresent(concept -> {~@:_~
+                      ~2@Tresult.append(\", concept '\")~@:_~
+                      ~2@T.append(concept.getConceptName().get())~@:_~
+                      ~2@T.append(\"'\");~@:_~
+                      });~@:_"
+                     (translate-class-name (without-id (mi:name concept)))))
+            (j:out "result.append(\"}\");~@:_~
+                    return result.toString();")))
+
+        (when concept?
+          (flet ((emit-relation (name forward-join-column inverse-join-column)
+                   (let ((method-name (string-capitalize name :end 1)))
+                     (format target "@ManyToMany(targetEntity = ~A.class, fetch = FetchType.LAZY)~@
                         @JoinTable(name=\"concept_ancestor\", schema=\"cds_cdm\",~@
                         ~2@TjoinColumns = {~@
                         ~2@T~2@T@JoinColumn(name=\"~A\")~@
@@ -103,12 +144,12 @@
                         public List<Concept> get~A() {~@
                         ~2@Treturn this.~A;~@
                         }~2%"
-                          class-name
-                          forward-join-column inverse-join-column
-                          name
-                          method-name name))))
-          (emit-relation "ancestors"   "descendant_concept_id" "ancestor_concept_id")
-          (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id"))))
+                             class-name
+                             forward-join-column inverse-join-column
+                             name
+                             method-name name))))
+            (emit-relation "ancestors"   "descendant_concept_id" "ancestor_concept_id")
+            (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id")))))
 
     (format target "~%}~%")))
 
@@ -150,8 +191,8 @@
               name ;; foreign-table-name (name foreign-column)
               data-type field-name)
       (format target "public Optional<~A> get~A() {~@
-                          ~2@Treturn Optional.ofNullable(this.~A);~@
-                          }~%"
+                      ~2@Treturn Optional.ofNullable(this.~A);~@
+                      }~%"
               data-type method-name field-name))))
 
 (defstruct (field (:constructor make-field (column))) column)
@@ -189,6 +230,7 @@
                         }~%"
                 return-type method-name
                 (funcall conversion field-access))
+        ;; TODO: use ofNullable
         (format target "public Optional<~A> get~A() {~@
                         ~2@Tif (this.~A != null) {~@
                         ~4@Treturn Optional.of(~A);~@

@@ -1,14 +1,5 @@
 (cl:in-package #:model-info-generator)
 
-;;; HACK(jmoringe): should not be an `:around' method
-(defmethod emit :around ((element data-model) (format t) (target pathname))
-  (assert (uiop:directory-pathname-p target))
-  (let* ((version          (remove #\. (version element)))
-         (versioned-target (merge-pathnames
-                            (make-pathname :directory `(:relative ,version))
-                            target)))
-    (call-next-method element format versioned-target)))
-
 (defmethod emit ((element data-model) (format t) (target pathname))
   (assert (uiop:directory-pathname-p target))
   (ensure-directories-exist target)
