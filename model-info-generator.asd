@@ -12,7 +12,10 @@
                  :serial     t
                  :components ((:file "package")
                               (:file "protocol")
-                              (:file "meta-model")
+                              (:module  "model"
+                               :serial     t
+                               :components ((:file "mixins")
+                                            (:file "omop")))
                               (:file "predicates")
                               (:file "input")
                               ;; Output
