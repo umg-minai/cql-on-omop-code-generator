@@ -195,9 +195,9 @@
   (a:when-let ((foreign-key (mi:foreign-key element)))
     (let* ((name           (mi:name element))
            (base-name      (without-id name))
-           (method-name    (mi::cql-element<-omop-column
+           (field-name     (mi::cql-element<-omop-column
                             format base-name))
-           (field-name     (string-downcase method-name :end 1))
+           (method-name    (string-capitalize field-name :end 1))
            (foreign-table  (mi:table foreign-key))
            (foreign-table-name (mi:name foreign-table))
                                         ; (foreign-column (column foreign-key))
@@ -241,8 +241,10 @@
          (return-type  (getter-type element))
          (conversion   (getter-conversion element))
          (name         (mi:name column))
-         (method-name  (mi::cql-element<-omop-column format name))
-         (field-name   (string-downcase method-name :end 1))
+         (base-name    (mi::cql-element<-omop-column format name))
+         (method-name  (string-capitalize base-name :end 1))
+         (field-name   base-name ; (string-downcase method-name :end 1)
+                       )
          (field-access (format nil "this.~A" field-name)))
     (if (mi:required? column)
         (format target "public ~A get~A() {~@
@@ -250,7 +252,6 @@
                         }~%"
                 return-type method-name
                 (funcall conversion field-access))
-        ;; TODO: use ofNullable
         (format target "public Optional<~A> get~A() {~@
                         ~2@Tif (this.~A != null) {~@
                         ~4@Treturn Optional.of(~A);~@
