@@ -25,6 +25,12 @@
                               ;; Interface
                               (:file "interface")))
 
+                (:module     "transform"
+                 :pathname   "code/transform"
+                 :depends-on ("code")
+                 :components ((:file "add-conversions")))
+
+
                 (:module     "java"
                  :pathname   "code/java"
                  :serial     t
