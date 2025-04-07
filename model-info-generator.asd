@@ -15,7 +15,8 @@
                               (:module  "model"
                                :serial     t
                                :components ((:file "mixins")
-                                            (:file "omop")))
+                                            (:file "omop")
+                                            (:file "cql")))
                               (:file "predicates")
                               (:file "input")
                               ;; Output

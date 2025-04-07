@@ -3,8 +3,15 @@
 ;;; `data-model'
 
 (defclass data-model (pi:print-items-mixin named-mixin version-mixin)
-  ((%tables :reader   tables
-            :initform (make-hash-table :test #'equal))))
+  ((%tables      :reader   tables
+                 :initform (make-hash-table :test #'equal))
+   (%conversions :type     list
+                 :accessor conversions
+                 :initform '())))
+
+(defmethod pi:print-items append ((object data-model))
+  (let ((conversion-count (length (conversions object))))
+    `(((:conversion-count (:after :version)) " ~D conversion~:P" ,conversion-count))))
 
 (defmethod find-table ((name string) (data-model data-model))
   (gethash name (tables data-model)))

@@ -73,12 +73,7 @@
             (emit-context "Patient"      "id" name "Person"))
 
           ;; Emit conversion infos.
-          (flet ((emit-conversion (from to function)
-                   (cxml:with-element* ("ns4" "conversionInfo")
-                     (cxml:attribute "fromType"     from)
-                     (cxml:attribute "toType"       to)
-                     (cxml:attribute "functionName" function))))
-            (emit-conversion "OMOP.Concept" "System.Concept" "OMOPHelpers.ToConcept")))))))
+          (mapc (a:rcurry #'emit format target) (conversions element)))))))
 
 (defmethod emit ((element table) (format schema-format) (target t))
   (cxml:with-element* ("ns4" "typeInfo")
@@ -129,6 +124,14 @@
           (cxml:attribute "name" (cql-element<-omop-column
                                   format name))
           (cxml:attribute "type" data-type))))))
+
+;;; Conversion
+
+(defmethod emit ((element conversion) (format schema-format) (target t))
+  (cxml:with-element* ("ns4" "conversionInfo")
+    (cxml:attribute "fromType"     (from-type element))
+    (cxml:attribute "toType"       (to-type element))
+    (cxml:attribute "functionName" (function-name element))))
 
 ;; TODO
 #|
