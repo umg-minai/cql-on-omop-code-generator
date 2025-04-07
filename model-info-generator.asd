@@ -22,6 +22,7 @@
                               ;; Output
                               (:file "output")
                               (:file "output-schema")
+                              (:file "output-helpers")
                               ;; Interface
                               (:file "interface")))
 

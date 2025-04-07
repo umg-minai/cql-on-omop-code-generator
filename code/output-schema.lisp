@@ -129,9 +129,12 @@
 
 (defmethod emit ((element conversion) (format schema-format) (target t))
   (cxml:with-element* ("ns4" "conversionInfo")
-    (cxml:attribute "fromType"     (from-type element))
+    (cxml:attribute "fromType"     (format nil "OMOP.~A"
+                                           (cql-type<-omop-table
+                                            format (name (from-table element)))))
     (cxml:attribute "toType"       (to-type element))
-    (cxml:attribute "functionName" (function-name element))))
+    (cxml:attribute "functionName" (format nil "OMOPHelpers.~A"
+                                           (function-name element)))))
 
 ;; TODO
 #|

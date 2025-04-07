@@ -38,18 +38,19 @@
 (defmethod mi:emit ((element mi:data-model)
                     (format  (eql :java-project))
                     (target  pathname))
-  (let* ((directory         (uiop:ensure-directory-pathname target))
-         (schema-directory  (merge-pathnames #P"src/java/main/resources/" directory))
-         (version           (remove #\. (mi:version element)))
-         (version-directory (make-pathname :directory (list :relative version)))
-         (model-directory   (reduce #'merge-pathnames
-                                   (list version-directory
-                                         #P"src/java/main/OMOP/"
-                                         directory)
-                                   :from-end t)))
+  (let* ((directory          (uiop:ensure-directory-pathname target))
+         (resource-directory (merge-pathnames #P"src/main/resources/org/example/" directory))
+         (version            (remove #\. (mi:version element)))
+         (version-directory  (make-pathname :directory (list :relative version)))
+         (model-directory    (reduce #'merge-pathnames
+                                     (list version-directory
+                                           #P"src/main/java/OMOP/"
+                                           directory)
+                                     :from-end t)))
+    (ensure-directories-exist resource-directory)
     (let ((schema-format (make-instance 'mi::schema-format :associated-format :java)))
-      (ensure-directories-exist schema-directory)
-      (mi:emit element schema-format schema-directory))
+      (mi:emit element schema-format resource-directory))
+    (mi:emit element :helpers resource-directory)
     (ensure-directories-exist model-directory) ; TODO: who should do this?
     (mi:emit element :java model-directory)))
 
