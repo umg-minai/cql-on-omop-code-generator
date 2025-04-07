@@ -127,23 +127,23 @@
             (j:out "@Override~%")
             (j:method ("toString" '() "String")
               (j:out "final var result = new StringBuilder();~@:_~
-                    result.append(\"~A{id=\").append(this.~A);~@:_"
+                      result.append(\"~A{id=\").append(this.~A);~@:_"
                      class-name (mi::cql-element<-omop-column
                                  format (mi:name id)))
-              (when concept?
-                (j:out "result.append(\", name=')~@:_~
-                      ~2@T.append(this.getConceptName().get())~@:_~
-                      ~2@T.append(\"'\");"))
-              (a:when-let ((concept (mi::canonical-concept-column element)))
-                (j:out "this.get~A().ifPresent(concept -> {~@:_~
-                      ~2@Tresult.append(\", concept '\")~@:_~
-                      ~2@T.append(concept.getConceptName().get())~@:_~
-                      ~2@T.append(\"'\");~@:_~
-                      });~@:_"
-                       (mi::cql-type<-omop-table
-                        format (without-id (mi:name concept)))))
+              (if concept?
+                (j:out "result.append(\", name='\")~@:_~
+                        ~2@T.append(this.getConceptName().get())~@:_~
+                        ~2@T.append(\"'\");~@:_")
+                (a:when-let ((concept (mi::canonical-concept-column element)))
+                  (j:out "this.get~A().ifPresent(concept -> {~@:_~
+                          ~2@Tresult.append(\", concept='\")~@:_~
+                          ~2@T.append(concept.getConceptName().get())~@:_~
+                          ~2@T.append(\"'\");~@:_~
+                          });~@:_"
+                         (mi::cql-type<-omop-table
+                          format (without-id (mi:name concept))))))
               (j:out "result.append(\"}\");~@:_~
-                    return result.toString();")))
+                      return result.toString();")))
 
           (when concept?
             (flet ((emit-relation (name forward-join-column inverse-join-column)
