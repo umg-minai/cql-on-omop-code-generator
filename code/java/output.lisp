@@ -23,7 +23,7 @@
         ((string= omop-type "datetime")             "ZonedDateTime")
         ((or (string= omop-type "integer")
              (string= omop-type "Integer"))         "Integer")
-        ((string= omop-type "float")                "Float")
+        ((string= omop-type "float")                "BigDecimal")
         ((a:starts-with-subseq "varchar" omop-type) "String")
         (t                                          omop-type)))
 
@@ -95,7 +95,8 @@
          (concept?   (string= name "concept")))
     (j:emitting (target)
       (j:out "package OMOP.~A;~2%" (remove #\. (mi:version meta-model)))
-      (j:out "import java.time.ZonedDateTime;~@
+      (j:out "import java.math.BigDecimal;~@
+              import java.time.ZonedDateTime;~@
               import java.util.List;~@
               import java.util.Optional;~@
               import jakarta.persistence.Entity;~@
