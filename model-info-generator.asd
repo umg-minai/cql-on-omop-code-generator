@@ -34,6 +34,7 @@
 
                 (:module     "java"
                  :pathname   "code/java"
+                 :depends-on ("code")
                  :serial     t
                  :components ((:file "syntax")
                               (:file "package")
@@ -41,6 +42,7 @@
 
                 (:module     "go"
                  :pathname   "code/go"
+                 :depends-on ("code")
                  :serial     t
                  :components ((:file "syntax")
                               (:file "package")
