@@ -40,8 +40,8 @@
   (let ((name (name (column element))))
     (format target "System.Code{~@:_~
                     ~2@Tcode:    ToString(OMOPObject.~A),~@:_~
-                    ~2@Tsystem:  OMOPObject~@[.~A~].vocabularyId,~@:_~
-                    ~2@Tdisplay: OMOPObject~:*~@[.~A~].conceptName~@:_~
+                    ~2@Tsystem:  'https://fhir-terminology.ohdsi.org' //OMOPObject~@[.~A~].vocabularyId,~@:_~
+                    //~2@Tdisplay: OMOPObject~:*~@[.~A~].conceptName~@:_~
                     }~@:_"
             (string-downcase (remove #\_ (string-capitalize name)) :end 1)
             (unless (equal (name (from-table element)) "concept")
