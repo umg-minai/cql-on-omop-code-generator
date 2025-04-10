@@ -73,7 +73,12 @@
             (emit-context "Patient"      "id" name "Person"))
 
           ;; Emit conversion infos.
-          (mapc (a:rcurry #'emit format target) (conversions element)))))))
+          (mapc (lambda (conversion)
+                  ;; TODO(jmoringe): Conversion to Interval doesn't
+                  ;; work properly at the moment. Skip for now.
+                  (unless (typep conversion 'to-interval-conversion)
+                    (emit conversion format target)))
+                (conversions element)))))))
 
 (defmethod emit ((element table) (format schema-format) (target t))
   (cxml:with-element* ("ns4" "typeInfo")

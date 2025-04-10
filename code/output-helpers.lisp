@@ -26,16 +26,13 @@
 (defmethod emit :around ((element conversion)
                          (format  (eql :helpers))
                          (target  stream))
-  ;; TODO(jmoringe): Conversion to Interval doesn't work properly at
-  ;; the moment. Skip for now.
-  (unless (typep element to-interval-conversion)
-    (format target "define function ~A(OMOPObject OMOP.~A):~%  "
-            (function-name element)
-            ;; TODO: customizable?
-            (remove #\_ (string-capitalize (name (from-table element)))))
-    (pprint-logical-block (target (list element))
-      (call-next-method element format target))
-    (format target "~%")))
+  (format target "define function ~A(OMOPObject OMOP.~A):~%  "
+          (function-name element)
+          ;; TODO: customizable?
+          (remove #\_ (string-capitalize (name (from-table element)))))
+  (pprint-logical-block (target (list element))
+    (call-next-method element format target))
+  (format target "~%"))
 
 (defmethod emit ((element to-code-conversion)
                  (format  (eql :helpers))
