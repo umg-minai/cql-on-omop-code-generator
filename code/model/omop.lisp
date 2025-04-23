@@ -68,7 +68,7 @@
                        parented-mixin)
   ((%table  :initarg :table
             :reader  table)
-   (%column :initarg :column
+   (%column :initarg :column ; TODO: just stores parent again
             :reader  column)))
 
 (defmethod pi:print-items append ((object foreign-key))
