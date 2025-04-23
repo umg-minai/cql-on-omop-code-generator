@@ -20,6 +20,7 @@
    #:columns
    #:find-column
    #:primary-key
+   #:compound-key
 
    #:column
    #:data-type
@@ -29,7 +30,10 @@
 
    #:foreign-key
    #:table
-   #:column)
+   #:column
+
+   #:compound-key
+   #:columns)
 
   (:export
    #:emit

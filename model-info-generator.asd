@@ -29,7 +29,8 @@
                 (:module     "transform"
                  :pathname   "code/transform"
                  :depends-on ("code")
-                 :components ((:file "add-conversions")))
+                 :components ((:file "add-conversions")
+                              (:file "add-compound-keys")))
 
 
                 (:module     "java"

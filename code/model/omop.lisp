@@ -28,8 +28,11 @@
                  description-mixin
                  parented-mixin
                  named-mixin)
-  ((%columns :reader   %columns
-             :initform (make-hash-table :test #'equal))))
+  ((%columns      :reader   %columns
+                  :initform (make-hash-table :test #'equal))
+   (%compound-key :initarg  :compound-key
+                  :accessor compound-key
+                  :initform nil)))
 
 (defmethod columns ((table table))
   (a:hash-table-values (%columns table)))
@@ -59,10 +62,15 @@
                   :reader   primary-key?)
    (%forgein-key  :initarg  :foreign-key
                   :reader   foreign-key
+                  :initform nil)
+   (%compound-key :initarg  :compound-key
+                  :accessor compound-key
                   :initform nil)))
 
 (defmethod pi:print-items append ((object column))
   `(((:type (:after :name)) ":~A" ,(data-type object))))
+
+;;; `foreign-key'
 
 (defclass foreign-key (pi:print-items-mixin
                        parented-mixin)
@@ -77,8 +85,21 @@
     `(((:table-name)                       "~A"  ,table-name)
       ((:column-name (:after :table-name)) ".~A" ,column-name))))
 
+;;; `compound-key'
+
+(defclass compound-key (pi:print-items-mixin
+                        parented-mixin)
+  ((%columns :initarg :columns
+             :type    list
+             :reader  columns)))
+
+(defmethod pi:print-items append ((object compound-key))
+  (let ((table-name   (name (parent object)))
+        (column-names (mapcar #'name (columns object))))
+    `(((:table-name)                        "~A"           ,table-name)
+      ((:column-names (:after :table-name)) ".<~{~A~^ ~}>" ,column-names))))
+
 ;;; TODO: does not belong here
 (defmethod output? ((element table))
-  (not (member (name element) '("concept_ancestors"
-                                "concept_relationship")
+  (not (member (name element) '("concept_ancestors")
                :test #'string=)))
