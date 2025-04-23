@@ -113,6 +113,12 @@
                     ("Table" (format nil "name = \"~A\"" name)
                              (format nil "schema = \"cds_cdm\""))) ; TODO: don't hard-code
       (j:class (class-name)
+        ;; If applicable, generate CompoundKey inner class and
+        ;; compoundKey field.
+        (a:when-let ((compound-key (mi:compound-key element)))
+          (let ((class-name (mi:emit compound-key format target)))
+            (j:annotation ("EmbeddedId")
+              (j:out "private ~A compoundId;~@:_~@:_" class-name))))
         ;; Columns
         (mapc (a:rcurry #'mi:emit format target)
               (sorted-elements columns))
@@ -161,45 +167,60 @@
             (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id")))))))
 
 (defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
-  (mi:emit (make-field element) format target)
-  (format target "~%")
-  (let ((getter (cond ((string= (mi:data-type element) "datetime")
-                       (make-getter
-                        element
-                        :type       "DateTime"
-                        :conversion (lambda (value)
-                                      (format nil "new DateTime(~A.toOffsetDateTime())"
-                                              value))))
-                      ((string= (mi:data-type element) "date")
-                       (make-getter
-                        element
-                        :type       "Date"
-                        :conversion (lambda (value)
-                                      (format nil "new Date(~A.toLocalDate())"
-                                              value))))
-                      (t
-                       (make-getter element)))))
-    (mi:emit getter format target))
-  (a:when-let ((foreign-key (mi:foreign-key element)))
-    (let* ((name           (mi:name element))
-           (base-name      (without-id name))
-           (field-name     (mi::cql-element<-omop-column
-                            format base-name))
-           (method-name    (string-capitalize field-name :end 1))
-           (foreign-table  (mi:table foreign-key))
-           (foreign-table-name (mi:name foreign-table))
+  (let ((compound-key (mi:compound-key element)))
+    (unless compound-key
+      (mi:emit (make-field element) format target)
+      (format target "~%"))
+    (let ((getter (cond ((string= (mi:data-type element) "datetime")
+                         (make-getter
+                          element
+                          :type       "DateTime"
+                          :conversion (lambda (value)
+                                        (format nil "new DateTime(~A.toOffsetDateTime())"
+                                                value))))
+                        ((string= (mi:data-type element) "date")
+                         (make-getter
+                          element
+                          :type       "Date"
+                          :conversion (lambda (value)
+                                        (format nil "new Date(~A.toLocalDate())"
+                                                value))))
+                        (t
+                         (make-getter element)))))
+      (mi:emit getter format target))
+
+    (a:when-let ((foreign-key (mi:foreign-key element)))
+      (let* ((name           (mi:name element))
+             (base-name      (without-id name))
+             (field-name     (field-name<-omop-column base-name))
+             (method-name    (string-capitalize field-name :end 1))
+             (foreign-table  (mi:table foreign-key))
+             (foreign-table-name (mi:name foreign-table))
                                         ; (foreign-column (column foreign-key))
-           (data-type      (mi::cql-type<-omop-table
-                            format foreign-table-name)))
-      (j:emitting (target)
-        (j:annotations (("ManyToOne" :|targetEntity| (format nil "~A.class" data-type)
-                                     :fetch          "FetchType.LAZY")
-                        ("JoinColumn" :name (format nil "\"~A\"" name)))
-          (j:out "private ~A ~A;~2%" data-type field-name))
+             (data-type      (mi::cql-type<-omop-table
+                              format foreign-table-name)))
+        (j:emitting (target)
+          (j:annotations (("ManyToOne" :|targetEntity| (format nil "~A.class" data-type)
+                                       :fetch          "FetchType.LAZY")
+                          ("JoinColumn" :name (format nil "\"~A\"" name)))
+            (when compound-key
+              (let ((field-name (field-name<-omop-column name)))
+                (j:annotation ("MapsId" (format nil "\"~A\"" field-name)))))
+            (j:out "private ~A ~A;~2%" data-type field-name))
 
-        (j:method ((format nil "get~A" method-name) () (format nil "Optional<~A>" data-type))
-          (j:out "return Optional.ofNullable(this.~A);" field-name))))))
+          (j:method ((format nil "get~A" method-name) () (format nil "Optional<~A>" data-type))
+            (j:out "return Optional.ofNullable(this.~A);" field-name)))))))
 
+(defmethod mi:emit ((element mi:compound-key) (format (eql :java)) (target stream))
+  (let ((name "CompoundId"))
+    (j:annotation ("Embeddable")
+      (j:class (name () ("private" "static"))
+        (mapc (lambda (column)
+                (mi:emit (make-field column) format target))
+              (sort (copy-list (mi:columns element)) #'string<
+                    :key #'mi:name))))
+    (j:out "~@:_")
+    name))
 
 (defstruct (field (:constructor make-field (column))) column)
 (defmethod mi:emit ((element field) (format (eql :java)) (target stream))
@@ -233,7 +254,9 @@
          (method-name  (string-capitalize base-name :end 1))
          (field-name   base-name ; (string-downcase method-name :end 1)
                        )
-         (field-access (format nil "this.~A" field-name)))
+         (field-access (if (mi:compound-key column)
+                           (format nil "this.compoundId.~A" field-name)
+                           (format nil "this.~A" field-name))))
     (j:method ((format nil "get~A" method-name)
                ()
                (if (mi:required? column)
