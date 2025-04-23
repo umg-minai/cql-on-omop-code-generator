@@ -18,6 +18,9 @@
 (defun translate-column-name (omop-name) ; TODO(jmoringe): remove
   (string-downcase (remove #\_ (string-capitalize omop-name)) :end 1))
 
+(defun field-name<-omop-column (omop-column)
+  (mi::cql-element<-omop-column :java omop-column))
+
 (defun java-type<-omop-type (omop-type)
   (cond ((string= omop-type "date")                 "ZonedDateTime")
         ((string= omop-type "datetime")             "ZonedDateTime")
@@ -32,6 +35,11 @@
     (concatenate 'string
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
+
+;;; Helpers
+
+(defun sorted-elements (elements)
+  (sort (copy-list elements) #'string< :key #'mi:name))
 
 ;;;
 
@@ -67,13 +75,14 @@
       (j:class (class-name)
         (j:method ("register" '(("mappingInfo" "MappingInfo")) "void"
                    :modifiers '("public" "static"))
-          (a:maphash-values
+          (mapc
            (lambda (table)
              (when (mi:primary-key table)
                (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
                       (mi::cql-type<-omop-table
                        format (mi:name table)))))
-           (mi:tables element)))))))
+           (sorted-elements
+            (a:hash-table-values (mi:tables element)))))))))
 
 ;;; Emit a CLASSInfo class for model class CLASS which has additional
 ;;; information about CLASS such as the names of joinable fields for
@@ -96,15 +105,7 @@
             import java.time.ZonedDateTime;~@
             import java.util.List;~@
             import java.util.Optional;~@
-            import jakarta.persistence.Entity;~@
-            import jakarta.persistence.FetchType;~@
-            import jakarta.persistence.Id;~@
-            import jakarta.persistence.JoinColumn;~@
-            import jakarta.persistence.JoinTable;~@
-            import jakarta.persistence.ManyToOne;~@
-            import jakarta.persistence.ManyToMany;~@
-            import jakarta.persistence.Table;~@
-            import jakarta.persistence.Column;~@
+            import jakarta.persistence.*;~@
             import org.opencds.cqf.cql.engine.runtime.DateTime;~@
             import org.opencds.cqf.cql.engine.runtime.Date;~2%")
 
@@ -112,7 +113,10 @@
                     ("Table" (format nil "name = \"~A\"" name)
                              (format nil "schema = \"cds_cdm\""))) ; TODO: don't hard-code
       (j:class (class-name)
-        (map nil (a:rcurry #'mi:emit format target) columns)
+        ;; Columns
+        (mapc (a:rcurry #'mi:emit format target)
+              (sorted-elements columns))
+        ;; If possible, generate a toString method.
         (a:when-let ((id (find-if #'mi:primary-key? columns)))
           (j:annotation ("Override")
             (j:method ("toString" '() "String")
@@ -237,7 +241,7 @@
                    (format nil "Optional<~A>" return-type)))
       (if (mi:required? column)
           (j:out "return ~A;" (funcall conversion field-access))
-          (j:if (format nil "this.~A != null" field-name)
+          (j:if (format nil "~A != null" field-access)
                 (lambda ()
                   (j:out "return Optional.of(~A);"
                          (funcall conversion field-access)))
