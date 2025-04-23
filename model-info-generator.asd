@@ -4,20 +4,20 @@
   :depends-on  ("alexandria"
                 "utilities.print-items"
 
-                "vellum-csv"
-
                 "cxml")
 
   :components  ((:module     "code"
                  :serial     t
                  :components ((:file "package")
                               (:file "protocol")
-                              (:module  "model"
+                              (:module     "model"
                                :serial     t
                                :components ((:file "mixins")
                                             (:file "omop")
                                             (:file "cql")))
                               (:file "predicates")
+                              ;; Input
+                              (:file "csv")
                               (:file "input")
                               ;; Output
                               (:file "output")

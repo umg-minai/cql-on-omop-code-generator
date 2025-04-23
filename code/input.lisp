@@ -2,8 +2,8 @@
 
 ;;; Utilities
 
-(defun read-csv (filename)
-  (vellum-csv::csv-to-list (a:read-file-into-string filename) #\, #\" #\"))
+(defun read-csv-file (filename)
+  (csv-to-list (a:read-file-into-string filename) #\, #\" #\"))
 
 ;;; Loaders
 
@@ -18,7 +18,7 @@
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
          (filename  (format nil "OMOP_CDM~A_Table_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
-    (destructuring-bind (header &rest tables) (read-csv pathname)
+    (destructuring-bind (header &rest tables) (read-csv-file pathname)
       (print header)
       (mapcar (lambda (table)
                 (destructuring-bind
@@ -43,7 +43,7 @@
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
          (filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
-    (destructuring-bind (header &rest fields) (read-csv pathname)
+    (destructuring-bind (header &rest fields) (read-csv-file pathname)
       (flet ((parse-field (field)
                (destructuring-bind (table-name field-name required? data-type
                                     user-guidance etl-conventions
