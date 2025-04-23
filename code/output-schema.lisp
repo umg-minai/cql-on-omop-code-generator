@@ -11,8 +11,11 @@
 ;;;
 
 (defclass schema-format ()
-  ((%associated-format :initarg :associated-format
-                       :reader  associated-format)))
+  ((%associated-format :initarg  :associated-format
+                       :reader   associated-format)
+   (%descriptions?     :initarg  :description?
+                       :reader   descriptions?
+                       :initform nil)))
 
 (defmethod cql-type<-omop-table ((format    schema-format)
                                  (omop-table string))
@@ -88,8 +91,9 @@
                                    format (name element)))
     (cxml:attribute "baseType"    "System.Any")
     (cxml:attribute "retrievable" "true")
-    (a:when-let ((description (description element)))
-      (cxml:attribute "description" description))
+    (when (descriptions? format)
+      (a:when-let ((description (description element)))
+        (cxml:attribute "description" description)))
 
     ;; Primary code path for condition occurrence
     (a:when-let ((concept-column (canonical-concept-column element)))
@@ -97,6 +101,8 @@
                    format (without-id (name concept-column)))))
         (cxml:attribute "primaryCodePath" path)))
 
+    ;; For the OMOP "concept", add elements for ancestor concepts and
+    ;; descendant concepts.
     (when (string= (name element) "concept")
       (flet ((emit-relation (name)
                (let ((name (cql-element<-omop-column format name)))
@@ -115,7 +121,10 @@
         (data-type (data-type element)))
     (cxml:with-element* ("ns4" "element")
       (cxml:attribute "name" (cql-element<-omop-column format name))
-      (cxml:attribute "type" (cql-type<-omop-type format data-type)))
+      (cxml:attribute "type" (cql-type<-omop-type format data-type))
+      (when (descriptions? format)
+        (a:when-let ((description (description element)))
+          (cxml:attribute "description" description))))
 
     ;; If there is a foreign key, emit a property for accessing the
     ;; other end of the relation.

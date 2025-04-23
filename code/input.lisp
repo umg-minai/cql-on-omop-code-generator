@@ -14,6 +14,14 @@
     (load-fields data-model version)
     data-model))
 
+(defun maybe-string (raw-value)
+  (cond ((null raw-value)
+         nil)
+        ((string= raw-value "NA")
+         nil)
+        (t
+         raw-value)))
+
 (defun load-tables (data-model version)
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
          (filename  (format nil "OMOP_CDM~A_Table_Level.csv" version))
@@ -23,16 +31,16 @@
       (mapcar (lambda (table)
                 (destructuring-bind
                     (name schema required? concept-prefix
-                     measure-person-completeness validation
+                     measure-person-completeness
+                     measure-person-completeness-threshold
+                     validation
                      description &rest rest)
                     table
                   (declare (ignore schema required? concept-prefix
                                    measure-person-completeness
+                                   measure-person-completeness-threshold
                                    validation rest))
-                  (let ((description
-                          (when (and description
-                                     (not (string= description "NA")))
-                            description)))
+                  (let ((description (maybe-string description)))
                     (setf (find-table name data-model)
                           (make-instance 'table
                                          :name        name
@@ -52,19 +60,23 @@
                                     &rest rest)
                    field
                  (declare (ignore rest))
-                 (let* ((table       (find-table table-name data-model))
-                        (foreign-key (when (string= foreign-key? "Yes")
-                                       (cons (string-downcase foreign-table-name)
-                                             (string-downcase foreign-field-name))))
-                        (description (format nil "~A~2%~A"
-                                             user-guidance etl-conventions))
-                        (column      (make-instance 'column
-                                                    :name         field-name
-                                                    :description  description
-                                                    :required?    (string= required? "yes")
-                                                    :data-type    data-type
-                                                    :primary-key? (string= primary-key? "Yes")
-                                                    :foreign-key  foreign-key)))
+                 (let* ((table        (find-table table-name data-model))
+                        (foreign-key  (when (string= foreign-key? "Yes")
+                                        (cons (string-downcase foreign-table-name)
+                                              (string-downcase foreign-field-name))))
+                        (description1 (maybe-string user-guidance))
+                        (description2 (maybe-string etl-conventions))
+                        (description  (format nil "~@[~A~]~:[~;~%---~%~]~@[~A~]"
+                                              description1
+                                              (and description1 description2)
+                                              description2))
+                        (column       (make-instance 'column
+                                                     :name         field-name
+                                                     :description  description
+                                                     :required?    (string= required? "yes")
+                                                     :data-type    data-type
+                                                     :primary-key? (string= primary-key? "Yes")
+                                                     :foreign-key  foreign-key)))
                    (setf (find-column field-name table) column))))
              (link-column (column)
                (a:when-let ((foreign-key (foreign-key column)))
