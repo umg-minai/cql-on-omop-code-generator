@@ -19,7 +19,14 @@
    #+unused #:func
    #:class
    #:method
-   #+unused #:emit-field))
+   #+unused #:emit-field
+
+   #:annotation
+   #:annotations)
+
+  (:export
+   #:call-with-output-to-java-file
+   #:with-output-to-java-file))
 
 (cl:in-package #:model-info-generator.java.syntax)
 
@@ -39,10 +46,10 @@
      (funcall string-or-continuation))))
 
 (defun emitting-block (continuation newline?)
-  (out "{~%")
+  (out "{~@:_")
   (pprint-logical-block (*stream* (list continuation) :per-line-prefix "    ")
     (write-or-call continuation))
-  (out "~&}~:[~;~%~]" newline?))
+  (out "~@:_}~:[~;~%~]" newline?))
 
 (defmacro block ((&optional (newline? t)) &body body)
   `(emitting-block (lambda () ,@body) ,newline?))
@@ -61,31 +68,28 @@
 (defmacro if (test then &optional else)
   `(emitting-if ,test ,then ,else))
 
-#+unused (defun emitting-for (continuation variables container)
-  (out "for ")
-  (loop :for variable :in variables
-        :for first? = t :then nil
-        :unless first? :do (out ", ")
-        :do (write-or-call variable))
-  (out " := range ")
-  (write-or-call container)
+(defun emitting-class (continuation name modifiers superclasses)
+  (out "~{~A ~}class ~A~{ ~{~(~A~) ~A~}~^,~} "
+       modifiers name superclasses)
   (block ()
-    (write-or-call continuation)))
+    (out "~@:_")
+    (funcall continuation)))
 
-#+unused (defmacro for ((&rest variables) container &body body)
-  `(emitting-for (lambda () ,@body) '(,@variables) ,container))
-
-(defun emitting-class (continuation name superclasses)
-  (out "public class ~A ~{~{~(~A~) ~A~}~^, ~} " name superclasses)
-  (block () (funcall continuation)))
-
-(defmacro class (name (&rest superclasses) &body body)
-  `(emitting-class (lambda () ,@body) ,name '(,@superclasses)))
+(defmacro class ((name &optional ((&rest superclasses) '())
+                                 ((&rest modifiers)    '("public")))
+                 &body body)
+  `(emitting-class
+    (lambda () ,@body)
+    ,name
+    (list ,@modifiers)
+    (list ,@(loop :for (relation name) :in superclasses
+                  :collect `(list ,relation ,name)))))
 
 (defun emitting-method (continuation name parameters result-type modifiers newline?)
   (out "~{~A ~}~A ~A(~{~{final ~*~A ~2:*~A~*~}~^, ~}) "
        modifiers result-type name parameters)
-  (block (newline?) (write-or-call continuation)))
+  (block (newline?) (write-or-call continuation))
+  (out "~@:_"))
 
 (defmacro method ((name parameters result-type
                    &key (newline? 't) (modifiers ''("public")))
@@ -95,3 +99,57 @@
 
 #+unused (defun emit-field (name type &optional annotation)
            (out "~A~@[ ~A~]~@[ `~A`~]" name type annotation))
+
+(defun emitting-annotation (continuation name &rest arguments)
+  (out "@~A" name)
+  (when arguments
+    (pprint-logical-block (*stream* arguments :prefix "(" :suffix ")")
+      (loop :for argument = (pprint-pop)
+            :do (format *trace-output* "~A~%" argument)
+            :if (keywordp argument)
+              :do (out "~A = "
+                       (let ((name (symbol-name argument)))
+                         (cl:if (every #'upper-case-p name)
+                                (string-downcase name)
+                                name)))
+                  (let ((value (pprint-pop)))
+                    (pprint-logical-block (*stream* (list value))
+                      (write-or-call value)))
+            :else
+              :do (out "~A" argument)
+            :do (pprint-exit-if-list-exhausted)
+                (out ", ~:_"))))
+  (out "~@:_")
+  (funcall continuation))
+
+(defmacro annotation ((name &rest arguments) &body body)
+  `(emitting-annotation (lambda () ,@body) ,name ,@arguments))
+
+(defmacro annotations ((&rest annotations) &body body)
+  (cl:if (null annotations)
+         `(progn ,@body)
+         `(annotation ,(first annotations)
+            (annotations ,(rest annotations) ,@body))))
+
+;;;
+
+(defun call-with-output-to-java-file (continuation
+                                      base-directory
+                                      package class-name)
+  (let* ((package  (mapcar (alexandria:curry #'remove #\.) package))
+         (filename (merge-pathnames
+                    (make-pathname :name      class-name
+                                   :type      "java"
+                                   :directory `(:relative ,@package))
+                    base-directory)))
+    (ensure-directories-exist filename)
+    (alexandria:with-output-to-file (stream filename :if-exists :supersede)
+      (pprint-logical-block (stream (list class-name))
+        (emitting (stream)
+          (out "package ~{~A~^.~};~@:_~@:_" package)
+          (funcall continuation))))))
+
+(defmacro with-output-to-java-file ((base-directory package class-name)
+                                    &body body)
+  `(call-with-output-to-java-file
+    (lambda () ,@body) ,base-directory ,package ,class-name))
