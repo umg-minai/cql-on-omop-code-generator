@@ -21,6 +21,7 @@
    #:find-column
    #:primary-key
    #:compound-key
+   #:extra-relations
 
    #:column
    #:data-type
@@ -33,7 +34,13 @@
    #:column
 
    #:compound-key
-   #:columns)
+   #:columns
+
+   #:extra-relation
+   #:table
+   #:join-columns
+   #:inverse-join-columns
+   #:target-table)
 
   (:export
    #:emit

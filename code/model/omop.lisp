@@ -28,11 +28,15 @@
                  description-mixin
                  parented-mixin
                  named-mixin)
-  ((%columns      :reader   %columns
-                  :initform (make-hash-table :test #'equal))
-   (%compound-key :initarg  :compound-key
-                  :accessor compound-key
-                  :initform nil)))
+  ((%columns         :reader   %columns
+                     :initform (make-hash-table :test #'equal))
+   (%compound-key    :initarg  :compound-key
+                     :accessor compound-key
+                     :initform nil)
+   (%extra-relations :initarg  :extra-relations
+                     :type     list
+                     :accessor extra-relations
+                     :initform '())))
 
 (defmethod columns ((table table))
   (a:hash-table-values (%columns table)))
@@ -98,6 +102,30 @@
         (column-names (mapcar #'name (columns object))))
     `(((:table-name)                        "~A"           ,table-name)
       ((:column-names (:after :table-name)) ".<~{~A~^ ~}>" ,column-names))))
+
+;;; `extra-relation'
+
+(defclass extra-relation (pi:print-items-mixin
+                          parented-mixin
+                          named-mixin)
+  ((%table                :initarg  :table ; foreign table
+                          :reader   table)
+   (%join-columns         :initarg  :join-columns ; column in the foreign table to join on
+                          :reader   join-columns)
+   (%inverse-join-columns :initarg  inverse-join-columns
+                          :reader   inverse-join-columns)
+   (%target-table         :reader   target-table)))
+
+(defmethod initialize-instance :after ((instance extra-relation)
+                                       &key table
+                                            inverse-join-columns
+                                            (target-table table))
+  (unless inverse-join-columns
+    (setf (slot-value instance '%inverse-join-columns)
+          (a:if-let ((primary-key (primary-key table)))
+            (list primary-key)
+            (columns (compound-key table)))))
+  (setf (slot-value instance '%target-table) target-table))
 
 ;;; TODO: does not belong here
 (defmethod output? ((element table))
