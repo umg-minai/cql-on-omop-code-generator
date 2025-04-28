@@ -100,21 +100,10 @@
       (let ((path (cql-element<-omop-column
                    format (without-id (name concept-column)))))
         (cxml:attribute "primaryCodePath" path)))
-
-    ;; For the OMOP "concept", add elements for ancestor concepts and
-    ;; descendant concepts.
-    (when (string= (name element) "concept")
-      (flet ((emit-relation (name)
-               (let ((name (cql-element<-omop-column format name)))
-                 (cxml:with-element* ("ns4" "element")
-                   (cxml:attribute "name" name)
-                   (cxml:with-element* ("ns4" "elementTypeSpecifier")
-                     (cxml:attribute "elementType" "OMOP.Concept")
-                     (cxml:attribute "xsi:type"    "ns4:ListTypeSpecifier"))))))
-        (emit-relation "ancestors")
-        (emit-relation "descendants")))
-
-    (map nil (a:rcurry #'emit format target) (columns element))))
+    ;; Add elements for columns and additional relations.
+    (mapc (a:rcurry #'emit format target)
+          (sorted-elements
+           (append (columns element) (extra-relations element))))))
 
 (defmethod emit ((element column) (format schema-format) (target t))
   (let ((name      (name element))
@@ -138,6 +127,18 @@
           (cxml:attribute "name" (cql-element<-omop-column
                                   format name))
           (cxml:attribute "type" data-type))))))
+
+(defmethod emit ((element extra-relation)
+                 (format  schema-format)
+                 (target  t))
+  (let ((name (name element))
+        (type (cql-type<-omop-table
+               format (name (target-table element)))))
+    (cxml:with-element* ("ns4" "element")
+      (cxml:attribute "name" name)
+      (cxml:with-element* ("ns4" "elementTypeSpecifier")
+        (cxml:attribute "elementType" type)
+        (cxml:attribute "xsi:type"    "ns4:ListTypeSpecifier")))))
 
 ;;; Conversion
 

@@ -9,6 +9,8 @@
   (:export
    #:name
 
+   #:sorted-elements
+
    #:version
 
    #:parent

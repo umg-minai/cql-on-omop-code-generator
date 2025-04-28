@@ -10,6 +10,9 @@
 (defmethod pi:print-items append ((object named-mixin))
   `((:name "~S" ,(name object))))
 
+(defun sorted-elements (elements)
+  (sort (copy-list elements) #'string< :key #'name))
+
 (defclass version-mixin ()
   ((%version :initarg  #1=:version
              :type     string
