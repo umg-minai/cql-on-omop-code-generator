@@ -36,11 +36,6 @@
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
 
-;;; Helpers
-
-(defun sorted-elements (elements)
-  (sort (copy-list elements) #'string< :key #'mi:name))
-
 ;;;
 
 (defmethod mi:emit ((element mi:data-model)
@@ -81,7 +76,7 @@
                (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
                       (mi::cql-type<-omop-table
                        format (mi:name table)))))
-           (sorted-elements
+           (mi:sorted-elements
             (a:hash-table-values (mi:tables element)))))))))
 
 ;;; Emit a CLASSInfo class for model class CLASS which has additional
@@ -121,7 +116,10 @@
               (j:out "private ~A compoundId;~@:_~@:_" class-name))))
         ;; Columns
         (mapc (a:rcurry #'mi:emit format target)
-              (sorted-elements columns))
+              (mi:sorted-elements columns))
+        ;; Generate extra relationships if any.
+        (mapc (a:rcurry #'mi:emit format target)
+              (mi:sorted-elements (mi:extra-relations element)))
         ;; If possible, generate a toString method.
         (a:when-let ((id (find-if #'mi:primary-key? columns)))
           (j:annotation ("Override")
@@ -136,35 +134,14 @@
                           ~2@T.append(\"'\");~@:_")
                   (a:when-let ((concept (mi::canonical-concept-column element)))
                     (j:out "this.get~A().ifPresent(concept -> {~@:_~
-                              ~2@Tresult.append(\", concept='\")~@:_~
-                              ~2@T.append(concept.getConceptName().get())~@:_~
-                              ~2@T.append(\"'\");~@:_~
-                              });~@:_"
+                            ~2@Tresult.append(\", concept='\")~@:_~
+                            ~2@T.append(concept.getConceptName().get())~@:_~
+                            ~2@T.append(\"'\");~@:_~
+                            });~@:_"
                            (mi::cql-type<-omop-table
                             format (without-id (mi:name concept))))))
               (j:out "result.append(\"}\");~@:_~
-                      return result.toString();"))))
-
-        (when concept?
-          (flet ((emit-relation (name forward-join-column inverse-join-column)
-                   (let ((method-name (string-capitalize name :end 1)))
-                     (j:annotations
-                         (("ManyToMany" :|targetEntity| (format nil "~A.class" class-name)
-                                        :fetch          "FetchType.LAZY")
-                          ("JoinTable"
-                           :name                 "\"concept_ancestor\""
-                           :schema               "\"cds_cdm\""
-                           :|joinColumns|        (lambda ()
-                                                   (j:block (nil)
-                                                     (j:annotation ("JoinColumn" :name (format nil "\"~A\"" forward-join-column)))))
-                           :|inverseJoinColumns| (lambda ()
-                                                   (j:block (nil)
-                                                     (j:annotation ("JoinColumn" :name (format nil "\"~A\"" inverse-join-column)))))))
-                       (j:out "private List<Concept> ~A;~2%" name))
-                     (j:method ((format nil "get~A" method-name) () "List<Concept>")
-                       (j:out "return this.~A;" name)))))
-            (emit-relation "ancestors"   "descendant_concept_id" "ancestor_concept_id")
-            (emit-relation "descendants" "ancestor_concept_id"   "descendant_concept_id")))))))
+                      return result.toString();"))))))))
 
 (defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
   (let ((compound-key (mi:compound-key element)))
@@ -221,6 +198,50 @@
                     :key #'mi:name))))
     (j:out "~@:_")
     name))
+
+(defmethod mi:emit ((element mi:extra-relation)
+                    (format  (eql :java))
+                    (target  stream))
+  (let* ((name                 (mi:name element))
+         (foreign-table        (mi:table element))
+         (table-name           (mi:name foreign-table))
+         (class-name           (mi::cql-type<-omop-table
+                                format (mi:name (mi:target-table element))))
+         (join-columns         (mi:join-columns element))
+         (inverse-join-columns (mi:inverse-join-columns element)))
+    (labels ((join-column (column)
+               (let ((name (mi:name column)))
+                 (j:annotation ("JoinColumn" :name       (format nil "\"~A\"" name)
+                                             :insertable "false"
+                                             :updatable  "false"))))
+             (join-columns (columns)
+               (j:block (nil)
+                 ;; TODO(jmoringe): idiomatic commas
+                 (mapc (let ((first? t))
+                         (lambda (join-column)
+                           (if first?
+                               (setf first? nil)
+                               (j:out ", "))
+                           (join-column join-column)))
+                       (mi:sorted-elements columns)))))
+     (j:annotations
+         (("ManyToMany" :|targetEntity| (format nil "~A.class" class-name)
+                        :fetch          "FetchType.LAZY")
+          ("JoinTable" :schema
+                       "\"cds_cdm\"" ; TODO(jmoringe: don't hard-code
+                       :name
+                       (format nil "\"~A\"" table-name)
+                       :|joinColumns|
+                       (lambda ()
+                         (join-columns join-columns))
+                       :|inverseJoinColumns|
+                       (lambda ()
+                         (join-columns inverse-join-columns))))
+       (j:out "private Set<~A> ~A;~@:_~@:_" class-name name)
+       (j:method ((format nil "get~A" (string-capitalize name :end 1))
+                  ()
+                  (format nil "Set<~A>" class-name))
+         (j:out "return this.~A;" name))))))
 
 (defstruct (field (:constructor make-field (column))) column)
 (defmethod mi:emit ((element field) (format (eql :java)) (target stream))
