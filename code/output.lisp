@@ -16,4 +16,5 @@
 
 (defmethod emit ((element table) (format t) (target pathname))
   (a:with-output-to-file (stream target :if-exists :supersede)
-    (emit element format stream)))
+    (pprint-logical-block (stream (list element))
+      (emit element format stream))))

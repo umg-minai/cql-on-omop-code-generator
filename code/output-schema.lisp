@@ -94,7 +94,6 @@
     (when (descriptions? format)
       (a:when-let ((description (description element)))
         (cxml:attribute "description" description)))
-
     ;; Primary code path for condition occurrence
     (a:when-let ((concept-column (canonical-concept-column element)))
       (let ((path (cql-element<-omop-column
@@ -150,21 +149,3 @@
     (cxml:attribute "toType"       (to-type element))
     (cxml:attribute "functionName" (format nil "OMOPHelpers.~A"
                                            (function-name element)))))
-
-;; TODO
-#|
-<conversionInfo functionName="FHIRHelpers.ToString" fromType="FHIR.ContractStatus" toType="System.String"/>
-   <conversionInfo functionName="FHIRHelpers.ToString" fromType="FHIR.CodeSystemHierarchyMeaning" toType="System.String"/>
-   <conversionInfo functionName="FHIRHelpers.ToString" fromType="FHIR.VisionBase" toType="System.String"/>
-   <conversionInfo functionName="FHIRHelpers.ToString" fromType="FHIR.BundleType" toType="System.String"/>
-   <conversionInfo functionName="FHIRHelpers.ToString" fromType="FHIR.DocumentConfidentiality" toType="System.String"/>
-   <contextInfo name="Practitioner" keyElement="id">
-      <contextType namespace="FHIR" name="Practitioner"/>
-   </contextInfo>
-   <contextInfo name="Device" keyElement="id">
-      <contextType namespace="FHIR" name="Device"/>
-   </contextInfo>
-   <contextInfo name="Patient" keyElement="id" birthDateElement="birthDate.value">
-      <contextType namespace="FHIR" name="Patient"/>
-   </contextInfo>
-|#

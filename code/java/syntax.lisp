@@ -113,8 +113,7 @@
                                 (string-downcase name)
                                 name)))
                   (let ((value (pprint-pop)))
-                    (pprint-logical-block (*stream* (list value))
-                      (write-or-call value)))
+                    (write-or-call value))
             :else
               :do (out "~A" argument)
             :do (pprint-exit-if-list-exhausted)
