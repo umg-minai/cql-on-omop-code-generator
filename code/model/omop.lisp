@@ -112,7 +112,7 @@
                           :reader   table)
    (%join-columns         :initarg  :join-columns ; column in the foreign table to join on
                           :reader   join-columns)
-   (%inverse-join-columns :initarg  inverse-join-columns
+   (%inverse-join-columns :initarg  :inverse-join-columns
                           :reader   inverse-join-columns)
    (%target-table         :reader   target-table)))
 
