@@ -1,7 +1,9 @@
 (cl:in-package #:model-info-generator)
 
 (defun do-it (version format target)
-  (let ((data-model (reduce #'funcall '(add-conversions add-compound-keys)
+  (let ((data-model (reduce #'funcall '(add-conversions
+                                        add-extra-relations
+                                        add-compound-keys)
                             :initial-value (load-data-model version)
                             :from-end      t)))
     (emit data-model format target)
