@@ -121,27 +121,33 @@
         (mapc (a:rcurry #'mi:emit format target)
               (mi:sorted-elements (mi:extra-relations element)))
         ;; If possible, generate a toString method.
-        (a:when-let ((id (find-if #'mi:primary-key? columns)))
-          (j:annotation ("Override")
-            (j:method ("toString" '() "String")
-              (j:out "final var result = new StringBuilder();~@:_~
-                      result.append(\"~A{id=\").append(this.~A);~@:_"
-                     class-name (mi::cql-element<-omop-column
-                                 format (mi:name id)))
-              (if concept?
-                  (j:out "result.append(\", name='\")~@:_~
-                          ~2@T.append(this.getConceptName().get())~@:_~
-                          ~2@T.append(\"'\");~@:_")
-                  (a:when-let ((concept (mi::canonical-concept-column element)))
-                    (j:out "this.get~A().ifPresent(concept -> {~@:_~
-                            ~2@Tresult.append(\", concept='\")~@:_~
-                            ~2@T.append(concept.getConceptName().get())~@:_~
-                            ~2@T.append(\"'\");~@:_~
-                            });~@:_"
-                           (mi::cql-type<-omop-table
-                            format (without-id (mi:name concept))))))
-              (j:out "result.append(\"}\");~@:_~
-                      return result.toString();"))))))))
+        (j:annotation ("Override")
+          (j:method ("toString" '() "String")
+            (j:out "final var result = new StringBuilder();~@:_")
+            (flet ((add (format-control &rest format-arguments)
+                     (apply #'j:out "result.append(~@?);~@:_"
+                            format-control format-arguments)))
+              (add "\"~A{\""  class-name)
+              (a:when-let ((id (find-if #'mi:primary-key? columns)))
+                (add "\"id=\"")
+                (add "this.~A" (mi::cql-element<-omop-column
+                                format (mi:name id))))
+              (cond (concept?
+                     (add ", name='\"")
+                     (add "this.getConceptName().get()")
+                     (add "\"'\""))
+                    (t
+                     (a:when-let ((concept (mi::canonical-concept-column element)))
+                       (j:out "this.get~A().ifPresent(concept -> "
+                              (mi::cql-type<-omop-table
+                               format (without-id (mi:name concept))))
+                       (j:block (nil)
+                         (add "\", concept='\"")
+                         (add "concept.getConceptName().get()")
+                         (add "\"'\""))
+                       (j:out ");~@:_"))))
+              (add "\"}\""))
+            (j:out "return result.toString();")))))))
 
 (defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
   (let ((compound-key (mi:compound-key element)))
