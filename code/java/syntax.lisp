@@ -47,7 +47,7 @@
 
 (defun emitting-block (continuation newline?)
   (out "{~@:_")
-  (pprint-logical-block (*stream* (list continuation) :per-line-prefix "    ")
+  (pprint-logical-block (*stream* (list continuation) :per-line-prefix "  ")
     (write-or-call continuation))
   (out "~@:_}~:[~;~%~]" newline?))
 
@@ -62,7 +62,7 @@
     (write-or-call then))
   (when else
     (out " else ")
-    (block ()
+    (block (nil)
       (write-or-call else))))
 
 (defmacro if (test then &optional else)
