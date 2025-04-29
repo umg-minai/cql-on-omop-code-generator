@@ -99,6 +99,7 @@
     (j:out "import java.math.BigDecimal;~@
             import java.time.ZonedDateTime;~@
             import java.util.List;~@
+            import java.util.Objects;~@
             import java.util.Optional;~@
             import jakarta.persistence.*;~@
             import org.opencds.cqf.cql.engine.runtime.DateTime;~@
@@ -199,9 +200,49 @@
     (j:annotation ("Embeddable")
       (j:class (name () ("private" "static"))
         (mapc (lambda (column)
-                (mi:emit (make-field column) format target))
+                (mi:emit (make-field column) format target)
+                (j:out "~@:_"))
               (sort (copy-list (mi:columns element)) #'string<
-                    :key #'mi:name))))
+                    :key #'mi:name))
+        ;; equals method
+        (j:annotation ("Override")
+          (j:method ("equals" '(("other" "Object")) "boolean")
+            (j:if "this == other"
+                  "return true;"
+                  (lambda ()
+                    (j:if (lambda ()
+                            (j:out "other instanceof ~A otherInstance"
+                                   name))
+                          (lambda ()
+                            (j:out "return ")
+                            (pprint-logical-block (j::*stream* (list element)
+                                                               :prefix "("
+                                                               :suffix ");")
+                              (j:out "other.getClass() == this.getClass()")
+                              (mapc (lambda (column)
+                                      (let ((field-name (field-name<-omop-column
+                                                         (mi:name column))))
+                                        (j:out "~@:_&& Objects.equals(this.~A, otherInstance.~:*~A)"
+                                               field-name)))
+                                    (mi:columns element))))
+                          "return false;")))))
+        ;; hashCode method
+        (j:annotation ("Override")
+          (j:method ("hashCode" '() "int" :newline? nil)
+            (j:out "return Objects.hash")
+            (pprint-logical-block (j::*stream* nil
+                                               :prefix "("
+                                               :suffix ");")
+              (mapc (let ((first? t))
+                      (lambda (column)
+                        (if first?
+                            (setf first? nil)
+                            (j:out ", "))
+                        (let ((field-name (field-name<-omop-column
+                                           (mi:name column))))
+                          (j:out "this.~A" field-name))))
+                    (mi:columns element)))))
+        ))
     (j:out "~@:_")
     name))
 
