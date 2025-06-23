@@ -38,6 +38,11 @@
 (defun out (format-control &rest format-arguments)
   (apply #'format *stream* format-control format-arguments))
 
+(defun coerce-to-indent (thing)
+  (typecase thing
+    (string  thing)
+    (integer (make-string thing :initial-element #\Space))))
+
 (defun write-or-call (string-or-continuation)
   (etypecase string-or-continuation
     (string
@@ -45,10 +50,11 @@
     ((or symbol cl:function)
      (funcall string-or-continuation))))
 
-(defun emitting-block (continuation newline?)
+(defun emitting-block (continuation newline? &key (indent 4))
   (out "{~@:_")
-  (pprint-logical-block (*stream* (list continuation) :per-line-prefix "  ")
-    (write-or-call continuation))
+  (let ((prefix (coerce-to-indent indent)))
+   (pprint-logical-block (*stream* (list continuation) :per-line-prefix prefix)
+     (write-or-call continuation)))
   (out "~@:_}~:[~;~%~]" newline?))
 
 (defmacro block ((&optional (newline? t)) &body body)
@@ -105,7 +111,6 @@
   (when arguments
     (pprint-logical-block (*stream* arguments :prefix "(" :suffix ")")
       (loop :for argument = (pprint-pop)
-            :do (format *trace-output* "~A~%" argument)
             :if (keywordp argument)
               :do (out "~A = "
                        (let ((name (symbol-name argument)))
