@@ -3,7 +3,9 @@
 ;;; Utilities
 
 (defun read-csv-file (filename)
-  (csv-to-list (a:read-file-into-string filename) #\, #\" #\"))
+  (let ((string (a:read-file-into-string
+                 filename :external-format '(:utf-8 :newline :crlf))))
+    (csv-to-list string #\, #\" #\")))
 
 ;;; Loaders
 
