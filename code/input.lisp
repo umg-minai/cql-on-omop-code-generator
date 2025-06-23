@@ -101,7 +101,7 @@
                         (column       (make-instance 'column
                                                      :name         field-name
                                                      :description  description
-                                                     :required?    (string= required? "yes")
+                                                     :required?    (string= required? "Yes")
                                                      :data-type    data-type
                                                      :primary-key? (string= primary-key? "Yes")
                                                      :foreign-key  foreign-key)))

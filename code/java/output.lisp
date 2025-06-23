@@ -139,14 +139,20 @@
                      (add "\"'\""))
                     (t
                      (a:when-let ((concept (mi::canonical-concept-column element)))
-                       (j:out "this.get~A().ifPresent(concept -> "
-                              (mi::cql-type<-omop-table
-                               format (without-id (mi:name concept))))
-                       (j:block (nil)
-                         (add "\", concept='\"")
-                         (add "concept.getConceptName().get()")
-                         (add "\"'\""))
-                       (j:out ");~@:_"))))
+                       (let ((name (mi::cql-type<-omop-table
+                                    format (without-id (mi:name concept)))))
+                         (cond ((mi:required? concept)
+                                (j:block (nil)
+                                  (add "\", concept='\"")
+                                  (add "this.get~A().getConceptName()" name)
+                                  (add "\"'\"")))
+                               (t
+                                (j:out "this.get~A().ifPresent(concept -> " name)
+                                (j:block (nil)
+                                  (add "\", concept='\"")
+                                  (add "concept.getConceptName()")
+                                  (add "\"'\""))
+                                (j:out ");~@:_")))))))
               (add "\"}\""))
             (j:out "return result.toString();")))))))
 
@@ -192,8 +198,14 @@
                 (j:annotation ("MapsId" (format nil "\"~A\"" field-name)))))
             (j:out "private ~A ~A;~2%" data-type field-name))
 
-          (j:method ((format nil "get~A" method-name) () (format nil "Optional<~A>" data-type))
-            (j:out "return Optional.ofNullable(this.~A);" field-name)))))))
+          (j:method ((format nil "get~A" method-name)
+                     ()
+                     (if (mi:required? element)
+                         data-type
+                         (format nil "Optional<~A>" data-type)))
+            (if (mi:required? element)
+                (j:out "return this.~A;" field-name)
+                (j:out "return Optional.ofNullable(this.~A);" field-name))))))))
 
 (defmethod mi:emit ((element mi:compound-key) (format (eql :java)) (target stream))
   (let ((name "CompoundId"))
