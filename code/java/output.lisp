@@ -44,19 +44,19 @@
                     (format  (eql :java-project))
                     (target  pathname))
   (let* ((directory          (uiop:ensure-directory-pathname target))
-         (resource-directory (merge-pathnames #P"src/main/resources/org/example/" directory))
-         (version            (remove #\. (mi:version element)))
-         (version-directory  (make-pathname :directory (list :relative version)))
-         (model-directory    (reduce #'merge-pathnames
-                                     (list version-directory
-                                           #P"src/main/java/OMOP/"
+         (code-package       '("de" "umg" "minai" "cqlonomop"))
+         (resource-directory (reduce #'merge-pathnames
+                                     (list (format nil "~{~A/~}" code-package)
+                                           #P"src/main/resources/"
                                            directory)
                                      :from-end t)))
     (ensure-directories-exist resource-directory)
     (let ((schema-format (make-instance 'mi::schema-format :associated-format :java)))
       (mi:emit element schema-format resource-directory))
     (mi:emit element :helpers resource-directory)
-    (mi:emit element :java (merge-pathnames #P"src/main/java/" directory))))
+    (mi:emit element :java (merge-pathnames #P"src/main/java/" directory))
+
+    (format *trace-output* ";; Output in ~S~%" directory)))
 
 ;;; Emit a Register class which provides a static method for
 ;;; registering all classes of one OMOP version in a provided
