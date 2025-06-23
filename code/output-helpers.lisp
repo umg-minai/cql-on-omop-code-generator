@@ -19,9 +19,13 @@
                 (let ((key (to-type conversion)))
                   (push conversion (gethash key by-target '()))))
               (conversions element))
-        (loop :for (to-type . conversions) :in (sort (a:hash-table-alist by-target) #'string< :key #'car)
+        (loop :with sorted = (sort (a:hash-table-alist by-target) #'string<
+                                   :key #'car)
+              :for (to-type . conversions) :in sorted
               :do (format stream "// Conversion to ~A~2%" to-type)
-                  (mapc (a:rcurry #'emit format stream) conversions))))))
+                  (mapc (a:rcurry #'emit format stream)
+                        (sorted-elements
+                         conversions :key (a:compose #'name #'from-table))))))))
 
 (defmethod emit :around ((element conversion)
                          (format  (eql :helpers))

@@ -207,15 +207,18 @@
                 (j:out "return this.~A;" field-name)
                 (j:out "return Optional.ofNullable(this.~A);" field-name))))))))
 
-(defmethod mi:emit ((element mi:compound-key) (format (eql :java)) (target stream))
-  (let ((name "CompoundId"))
+(defmethod mi:emit ((element mi:compound-key)
+                    (format  (eql :java))
+                    (target  stream))
+  (let ((name    "CompoundId")
+        (columns (sort (copy-list (mi:columns element)) #'string<
+                       :key #'mi:name)))
     (j:annotation ("Embeddable")
       (j:class (name () ("private" "static"))
         (mapc (lambda (column)
                 (mi:emit (make-field column) format target)
                 (j:out "~@:_"))
-              (sort (copy-list (mi:columns element)) #'string<
-                    :key #'mi:name))
+              columns)
         ;; equals method
         (j:annotation ("Override")
           (j:method ("equals" '(("other" "Object")) "boolean")
@@ -236,7 +239,7 @@
                                                          (mi:name column))))
                                         (j:out "~@:_&& Objects.equals(this.~A, otherInstance.~:*~A)"
                                                field-name)))
-                                    (mi:columns element))))
+                                    columns)))
                           "return false;")))))
         ;; hashCode method
         (j:annotation ("Override")

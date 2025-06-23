@@ -81,7 +81,11 @@
                   ;; work properly at the moment. Skip for now.
                   (unless (typep conversion 'to-interval-conversion)
                     (emit conversion format target)))
-                (conversions element)))))))
+                (sorted-elements (conversions element)
+                                 :key (lambda (conversion)
+                                        (concatenate 'string
+                                                     (name (from-table conversion))
+                                                     (to-type conversion))))))))))
 
 (defun maybe-emit-description-elements (element format)
   (when (descriptions? format)
