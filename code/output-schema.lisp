@@ -29,12 +29,16 @@
 
 (defmethod cql-type<-omop-type ((format    schema-format)
                                 (omop-type string))
+  ;; From PostgreSQL documentation:
+  ;; integer  4 bytes  [...]  -2147483648 to +2147483647
+  ;; bigint   8 bytes  [...]  -9223372036854775808 to +9223372036854775807
   (cond ((string= omop-type "date")                 "System.Date")
         ((string= omop-type "datetime")             "System.DateTime")
-        ((or (string= omop-type "integer")
-             (string= omop-type "Integer"))         "System.Integer")
+        ((string= omop-type "integer")              "System.Integer")
+        ((string= omop-type "bigint")               "System.Long")
         ((string= omop-type "float")                "System.Decimal")
         ((a:starts-with-subseq "varchar" omop-type) "System.String")
+        ((string= omop-type "text")                 "System.String")
         (t                                          omop-type)))
 
 (defmethod emit ((element data-model)

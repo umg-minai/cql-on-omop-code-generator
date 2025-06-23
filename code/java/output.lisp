@@ -26,7 +26,9 @@
         ((string= omop-type "datetime")             "ZonedDateTime")
         ((or (string= omop-type "integer")
              (string= omop-type "Integer"))         "Integer")
+        ((string= omop-type "bigint")               "Long")
         ((string= omop-type "float")                "BigDecimal")
+        ((string= omop-type "text")                 "String")
         ((a:starts-with-subseq "varchar" omop-type) "String")
         (t                                          omop-type)))
 
