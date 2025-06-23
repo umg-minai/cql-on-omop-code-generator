@@ -22,7 +22,18 @@
         ((string= raw-value "NA")
          nil)
         (t
-         raw-value)))
+         (with-output-to-string (stream)
+           (loop :for previous = nil :then character
+                 :for character :across raw-value
+                 :do (cond ((null previous))
+                           ((not (eql previous #\Newline)) ; (not #\Newline) *
+                            (write-char previous stream))
+                           ((eql character #\Newline) ; #\Newline #\Newline
+                            (write-char previous stream))
+                           (t ; #\Newline (not #\Newline)
+                            (write-char #\Space  stream)))
+                 :finally (unless (null character)
+                            (write-char character stream)))))))
 
 (defun load-tables (data-model version)
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
