@@ -35,25 +35,35 @@
                  :finally (unless (null character)
                             (write-char character stream)))))))
 
+(defun maybe-description (&rest keys-and-values &key &allow-other-keys)
+  (loop :for (key value) :on keys-and-values :by #'cddr
+        :for maybe-string = (maybe-string value)
+        :when maybe-string
+          :collect key
+          :and :collect maybe-string))
+
 (defun load-tables (data-model version)
   (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
          (filename  (format nil "OMOP_CDM~A_Table_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
     (destructuring-bind (header &rest tables) (read-csv-file pathname)
-      (print header)
+      (declare (ignore header))
       (mapcar (lambda (table)
                 (destructuring-bind
                     (name schema required? concept-prefix
                      measure-person-completeness
                      measure-person-completeness-threshold
                      validation
-                     description &rest rest)
+                     description user-guidance etl-conventions)
                     table
                   (declare (ignore schema required? concept-prefix
                                    measure-person-completeness
                                    measure-person-completeness-threshold
-                                   validation rest))
-                  (let ((description (maybe-string description)))
+                                   validation))
+                  (let ((description (maybe-description
+                                      :description     description
+                                      :user-guidance   user-guidance
+                                      :etl-conventions etl-conventions)))
                     (setf (find-table name data-model)
                           (make-instance 'table
                                          :name        name
@@ -65,6 +75,7 @@
          (filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
          (pathname  (merge-pathnames filename directory)))
     (destructuring-bind (header &rest fields) (read-csv-file pathname)
+      (declare (ignore header))
       (flet ((parse-field (field)
                (destructuring-bind (table-name field-name required? data-type
                                     user-guidance etl-conventions
@@ -77,12 +88,16 @@
                         (foreign-key  (when (string= foreign-key? "Yes")
                                         (cons (string-downcase foreign-table-name)
                                               (string-downcase foreign-field-name))))
-                        (description1 (maybe-string user-guidance))
-                        (description2 (maybe-string etl-conventions))
-                        (description  (format nil "~@[~A~]~:[~;~%---~%~]~@[~A~]"
-                                              description1
-                                              (and description1 description2)
-                                              description2))
+                        (description  (maybe-description
+                                       :user-guidance   user-guidance
+                                       :etl-conventions etl-conventions))
+                        ;; Fix inconsistent case for varchar and integer.
+                        (data-type    (cond ((a:starts-with-subseq "Varchar" data-type)
+                                             (string-downcase data-type))
+                                            ((string= data-type "Integer")
+                                             (string-downcase data-type))
+                                            (t
+                                             data-type)))
                         (column       (make-instance 'column
                                                      :name         field-name
                                                      :description  description

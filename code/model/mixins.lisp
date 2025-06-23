@@ -30,6 +30,25 @@
 
 (defclass description-mixin ()
   ((%description :initarg  :description
-                 :type     (or null string)
-                 :reader   description
+                 :type     (or null string cons)
+                 :reader   %description
                  :initform nil)))
+
+(defmethod description ((element description-mixin) &optional (which t))
+  (let ((description (%description element)))
+    (cond ((typep description '(or null string))
+           description)
+          ((typep which '(or (eql t) list))
+           (block outer
+             (with-output-to-string (stream)
+               (loop :with any-match? = nil
+                     :for (key value) :on description :by #'cddr
+                     :when (or (eq which t) (member key which))
+                       :do (if any-match?
+                               (format stream "~2%")
+                               (setf any-match? t))
+                           (write-string value stream)
+                     :finally (when (not any-match?)
+                                (return-from outer nil))))))
+          (t
+           (getf description which)))))

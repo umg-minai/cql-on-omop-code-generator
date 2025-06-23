@@ -13,9 +13,9 @@
 (defclass schema-format ()
   ((%associated-format :initarg  :associated-format
                        :reader   associated-format)
-   (%descriptions?     :initarg  :description?
+   (%descriptions?     :initarg  :descriptions?
                        :reader   descriptions?
-                       :initform nil)))
+                       :initform t)))
 
 (defmethod cql-type<-omop-table ((format    schema-format)
                                  (omop-table string))
@@ -83,6 +83,13 @@
                     (emit conversion format target)))
                 (conversions element)))))))
 
+(defun maybe-emit-description-elements (element format)
+  (when (descriptions? format)
+    (a:when-let ((string (description element '(:description :user-guidance))))
+      (cxml:attribute "definition" string))
+    (a:when-let ((string (description element :etl-conventions)))
+      (cxml:attribute "comment" string))))
+
 (defmethod emit ((element table) (format schema-format) (target t))
   (cxml:with-element* ("ns4" "typeInfo")
     (cxml:attribute "xsi:type"    "ns4:ClassInfo")
@@ -91,9 +98,7 @@
                                    format (name element)))
     (cxml:attribute "baseType"    "System.Any")
     (cxml:attribute "retrievable" "true")
-    (when (descriptions? format)
-      (a:when-let ((description (description element)))
-        (cxml:attribute "description" description)))
+    (maybe-emit-description-elements element format)
     ;; Primary code path for condition occurrence
     (a:when-let ((concept-column (canonical-concept-column element)))
       (let ((path (cql-element<-omop-column
@@ -110,9 +115,7 @@
     (cxml:with-element* ("ns4" "element")
       (cxml:attribute "name" (cql-element<-omop-column format name))
       (cxml:attribute "type" (cql-type<-omop-type format data-type))
-      (when (descriptions? format)
-        (a:when-let ((description (description element)))
-          (cxml:attribute "description" description))))
+      (maybe-emit-description-elements element format))
 
     ;; If there is a foreign key, emit a property for accessing the
     ;; other end of the relation.
