@@ -378,13 +378,13 @@
                   "return null;")
             (j:out "return null;")))
 
-      (j:method ("columnForContext"
+      (j:method ("infoForContext"
                  '(("contextPath" "String")
                    ("contextValue" "Object"))
-                 "String")
+                 "ContextInfo")
         (if (find "person_id" columns :test #'equal :key #'mi:name)
-            (j:if "contextPath.equals(\"person\") && (contextValue instanceof Person)"
-                  "return \"personId\";"
+            (j:if "contextPath.equals(\"person\") && (contextValue instanceof Person person)"
+                  "return new ContextInfo(\"personId\", person.getPersonId());"
                   "return null;")
             (j:out "return null;")))
 
