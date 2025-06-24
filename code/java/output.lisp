@@ -74,10 +74,9 @@
                    :modifiers '("public" "static"))
           (mapc
            (lambda (table)
-             (when (mi:primary-key table)
-               (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
-                      (mi::cql-type<-omop-table
-                       format (mi:name table)))))
+             (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
+                    (mi::cql-type<-omop-table
+                     format (mi:name table))))
            (mi:sorted-elements
             (a:hash-table-values (mi:tables element)))))))))
 

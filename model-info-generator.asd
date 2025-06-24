@@ -31,7 +31,8 @@
                  :depends-on ("code")
                  :components ((:file "add-conversions")
                               (:file "add-compound-keys")
-                              (:file "add-extra-relations")))
+                              (:file "add-extra-relations")
+                              (:file "remove-cohort")))
 
 
                 (:module     "java"
