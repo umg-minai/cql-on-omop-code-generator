@@ -51,6 +51,14 @@
 (defmethod primary-key ((table table))
   (find-if #'primary-key? (a:hash-table-values (%columns table))))
 
+(defmethod add-compound-key ((table table) (columns t))
+  (assert (not (null columns)))
+  (let ((key (make-instance 'compound-key :parent  table
+                                          :columns columns)))
+    (loop :for column :in columns
+          :do (setf (compound-key column) key))
+    (setf (compound-key table) key)))
+
 ;;; `column'
 
 (defclass column (pi:print-items-mixin

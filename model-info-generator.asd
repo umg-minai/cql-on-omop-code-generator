@@ -33,7 +33,7 @@
                               (:file "add-compound-keys")
                               (:file "add-extra-relations")
                               (:file "remove-cohort")
-                              (:file "cdm-source-keys")))
+                              (:file "manual-compound-keys")))
 
 
                 (:module     "java"
