@@ -97,15 +97,16 @@
          (class-name (mi::cql-type<-omop-table format name))
          (columns    (mi:columns element))
          (concept?   (string= name "concept")))
-    (j:out "import java.math.BigDecimal;~@
+    (j:out "import jakarta.persistence.*;~@
+            import org.opencds.cqf.cql.engine.runtime.Date;~@
+            import org.opencds.cqf.cql.engine.runtime.DateTime;~@
+            ~@
+            import java.math.BigDecimal;~@
             import java.time.ZonedDateTime;~@
             import java.util.List;~@
             import java.util.Objects;~@
             import java.util.Optional;~@
-            import java.util.Set;~@
-            import jakarta.persistence.*;~@
-            import org.opencds.cqf.cql.engine.runtime.DateTime;~@
-            import org.opencds.cqf.cql.engine.runtime.Date;~2%")
+            import java.util.Set;~2%")
 
     (j:annotations (("Entity")
                     ("Table" (format nil "name = \"~A\"" name)
