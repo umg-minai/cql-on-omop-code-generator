@@ -4,6 +4,7 @@
   (let ((data-model (reduce #'funcall '(add-conversions
                                         add-extra-relations
                                         add-compound-keys
+                                        cdm-source-keys
                                         remove-cohort)
                             :initial-value (load-data-model version)
                             :from-end      t)))

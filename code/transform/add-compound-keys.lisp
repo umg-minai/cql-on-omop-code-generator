@@ -2,7 +2,8 @@
 
 (defmethod add-compound-keys ((element data-model))
   (a:maphash-values (lambda (table)
-                      (when (null (primary-key table))
+                      (when (and (null (primary-key table))
+                                 (null (compound-key table)))
                         (add-compound-keys table)))
                     (tables element))
   element)

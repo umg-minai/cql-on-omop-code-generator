@@ -32,7 +32,8 @@
                  :components ((:file "add-conversions")
                               (:file "add-compound-keys")
                               (:file "add-extra-relations")
-                              (:file "remove-cohort")))
+                              (:file "remove-cohort")
+                              (:file "cdm-source-keys")))
 
 
                 (:module     "java"
