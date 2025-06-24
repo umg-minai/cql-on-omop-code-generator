@@ -1,13 +1,19 @@
 (cl:in-package #:model-info-generator)
 
+(defun prepare-model (version)
+  (reduce (lambda (transform model)
+            (format *trace-output* ";; Applying ~S~%" transform)
+            (funcall transform model))
+          '(add-conversions
+            add-extra-relations
+            add-compound-keys
+            cdm-source-keys
+            remove-cohort)
+          :initial-value (load-data-model version)
+          :from-end      t))
+
 (defun do-it (version format target)
-  (let ((data-model (reduce #'funcall '(add-conversions
-                                        add-extra-relations
-                                        add-compound-keys
-                                        cdm-source-keys
-                                        remove-cohort)
-                            :initial-value (load-data-model version)
-                            :from-end      t)))
+  (let ((data-model (prepare-model version)))
     (emit data-model format target)
     data-model))
 
