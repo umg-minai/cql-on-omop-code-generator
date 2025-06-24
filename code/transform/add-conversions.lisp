@@ -43,6 +43,9 @@
     (let* ((tables        (a:hash-table-values (tables data-model)))
            (output-tables (remove-if-not #'output? tables)))
       (mapc #'maybe-to-concept output-tables)
+      (push (make-instance 'list-to-concept-conversion
+                           :from-table (find-table "concept" data-model))
+            (conversions data-model))
       (mapc #'maybe-to-quantity output-tables)
       (mapc (a:rcurry #'maybe-to-interval "datetime") output-tables)
       (mapc (a:rcurry #'maybe-to-interval "date") output-tables)))

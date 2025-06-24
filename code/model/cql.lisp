@@ -27,6 +27,8 @@
    :to-type       "System.Concept"
    :function-name "ToConcept"))
 
+(defclass list-to-concept-conversion (to-concept-conversion) ())
+
 (defclass to-quantity-conversion (conversion)
   ((%value-column :initarg :value-column
                   :reader  value-column)

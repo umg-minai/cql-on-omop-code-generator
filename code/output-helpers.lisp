@@ -60,6 +60,16 @@
                   ~2@Tcodes: { ToCode(OMOPObject) }~@:_~
                   }~@:_"))
 
+(defmethod from-type ((element list-to-concept-conversion))
+  (format nil "List<~A>" (call-next-method)))
+
+(defmethod emit ((element list-to-concept-conversion)
+                 (format  (eql :helpers))
+                 (target  stream))
+  (format target "System.Concept{~@:_~
+                  ~2@Tcodes: (OMOPObject) o return all ToCode(o)~@:_~
+                  }~@:_"))
+
 (defmethod emit ((element to-quantity-conversion)
                  (format  (eql :helpers))
                  (target  stream))
