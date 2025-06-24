@@ -51,3 +51,15 @@
                  :components ((:file "syntax")
                               (:file "package")
                               (:file "output")))))
+
+(defsystem "model-info-generator/mimic"
+  :description "Generate schemas and code specifically for MIMIC data"
+
+  :depends-on  ("model-info-generator")
+
+  :components  ((:module     "code"
+                 :components ((:file "output-mimic-schema-changes")))
+
+                (:module     "transform"
+                 :pathname   "code/transform"
+                 :components ((:file "changes-for-mimic")))))
