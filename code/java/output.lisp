@@ -246,7 +246,7 @@
                           "return false;")))))
         ;; hashCode method
         (j:annotation ("Override")
-          (j:method ("hashCode" '() "int" :newline? nil)
+          (j:method ("hashCode" '() "int")
             (j:out "return Objects.hash")
             (pprint-logical-block (j::*stream* nil
                                                :prefix "("
@@ -259,7 +259,27 @@
                         (let ((field-name (field-name<-omop-column
                                            (mi:name column))))
                           (j:out "this.~A" field-name))))
-                    (mi:columns element)))))
+                    columns))))
+        ;; toString method
+        (j:annotation ("Override")
+          (j:method ("toString" '() "String")
+            (j:out "final var result = new StringBuilder();~@:_")
+            (flet ((add (format-control &rest format-arguments)
+                     (apply #'j:out "result.append(~@?);~@:_"
+                            format-control format-arguments)))
+              (add "\"~A{\"" name)
+              (mapc (let ((first? t))
+                      (lambda (column)
+                        (if first?
+                            (setf first? nil)
+                            (add "\", \""))
+                        (let ((field-name (field-name<-omop-column
+                                           (mi:name column))))
+                          (add "\"~A=\"" field-name)
+                          (add "this.~:A" field-name))))
+                    columns)
+              (add "\"}\""))
+            (j:out "return result.toString();")))
         ))
     (j:out "~@:_")
     name))
