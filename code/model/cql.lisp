@@ -22,8 +22,7 @@
    :function-name "ToCode"))
 
 (defclass to-concept-conversion (conversion)
-  ((%column :initarg :column
-            :reader  column))
+  ()
   (:default-initargs
    :to-type       "System.Concept"
    :function-name "ToConcept"))

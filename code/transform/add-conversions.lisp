@@ -3,9 +3,7 @@
 (defmethod add-conversions ((data-model data-model))
   (flet ((maybe-to-concept (table)
            (a:when-let ((column (canonical-concept-column table)))
-             (push (make-instance 'to-concept-conversion
-                                  :from-table table
-                                  :column     column)
+             (push (make-instance 'to-concept-conversion :from-table table)
                    (conversions data-model))
              (push (make-instance 'to-code-conversion
                                   :from-table table
