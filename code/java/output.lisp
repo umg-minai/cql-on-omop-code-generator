@@ -433,7 +433,6 @@
         (j:out "return ~@<~:[false~;~:*~{codePath.equals(\"~A\")~^ ~@:_|| ~}~]~@:>;"
                (loop :for column :in (mi:columns table)
                      :for name   =   (mi:name column)
-                     :when (and (a:ends-with-subseq "concept_id" name) ; TODO: make a function
-                                (equal (mi:data-type column) "integer"))
+                     :when (a:ends-with-subseq "concept_id" name)
                        :collect (mi::cql-element<-omop-column
                                  format (without-id name))))))))
