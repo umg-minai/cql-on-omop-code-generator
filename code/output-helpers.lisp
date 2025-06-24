@@ -27,13 +27,15 @@
                         (sorted-elements
                          conversions :key (a:compose #'name #'from-table))))))))
 
+(defmethod from-type ((element conversion))
+  (format nil "OMOP.~A"
+          (remove #\_ (string-capitalize (name (from-table element))))))
+
 (defmethod emit :around ((element conversion)
                          (format  (eql :helpers))
                          (target  stream))
-  (format target "define function ~A(OMOPObject OMOP.~A):~%  "
-          (function-name element)
-          ;; TODO: customizable?
-          (remove #\_ (string-capitalize (name (from-table element)))))
+  (format target "define function ~A(OMOPObject ~A):~%  "
+          (function-name element) (from-type element))
   (pprint-logical-block (target (list element))
     (call-next-method element format target))
   (format target "~%"))
