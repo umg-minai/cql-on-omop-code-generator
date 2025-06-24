@@ -115,7 +115,14 @@
     ;; Add elements for columns and additional relations.
     (mapc (a:rcurry #'emit format target)
           (sorted-elements
-           (append (columns element) (extra-relations element))))))
+           (append (columns element)
+                   (extra-relations element)
+                   (when (string= (name element) "concept")
+                     ;; Required as code path in retrieve
+                     (list (make-instance
+                            'column :name        "concept"
+                                    :data-type   "Concept"
+                                    :description '(:description "Required as a valid code path in retrieve implementation.")))))))))
 
 (defmethod emit ((element column) (format schema-format) (target t))
   (let ((name      (name element))
