@@ -136,9 +136,12 @@
                 (add "\"id=\"")
                 (add "this.~A" (mi::cql-element<-omop-column
                                 format (mi:name id))))
+              (when (mi:compound-key element)
+                (add "\"id=\"")
+                (add "this.compoundId"))
               (cond (concept?
-                     (add ", name='\"")
-                     (add "this.getConceptName().get()")
+                     (add "\", name='\"")
+                     (add "this.getConceptName()")
                      (add "\"'\""))
                     (t
                      (a:when-let ((concept (mi::canonical-concept-column element)))
