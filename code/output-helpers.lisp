@@ -6,11 +6,11 @@
   (let* ((directory (uiop:ensure-directory-pathname target))
          (name      (name element))
          (version   (version element))
-         (base-name "OMOPHelpers")
+         (base-name (format nil "OMOPHelpers~A" version))
          (filename  (make-pathname :name base-name :type "cql"))
          (pathname  (merge-pathnames filename directory)))
     (a:with-output-to-file (stream pathname :if-exists :supersede)
-      (format stream "library ~A version '1.0'~@
+      (format stream "library \"~A\" version '1.0'~@
                       ~@
                       using ~A version '~A'~2%"
               base-name name version)
