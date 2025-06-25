@@ -10,10 +10,10 @@
          (filename  (make-pathname :name base-name :type "cql"))
          (pathname  (merge-pathnames filename directory)))
     (a:with-output-to-file (stream pathname :if-exists :supersede)
-      (format stream "library \"~A\" version '1.0'~@
+      (format stream "library OMOPHelpers version '1.0'~@
                       ~@
                       using ~A version '~A'~2%"
-              base-name name version)
+              name version)
       (let ((by-target (make-hash-table :test #'equal)))
         (mapc (lambda (conversion)
                 (let ((key (to-type conversion)))
