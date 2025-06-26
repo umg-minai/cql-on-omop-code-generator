@@ -12,9 +12,23 @@
           :initial-value (load-data-model version)
           :from-end      t))
 
-(defun do-it (version format target)
-  (let ((data-model (prepare-model version)))
+(defun generate-code (version format target)
+  "Generate code for VERSION of OMOP CDM with FORMAT into TARGET.
+
+VERSION designates a version of the OMOP CDM. Currently, \"v5.3\" and
+\"v5.4\" are the only supported values.
+
+FORMAT selects what should be generated.  Should be either
+`:go-project' or `:java-project'.  Other values will be accepted but
+those are for internal use at the moment.
+
+TARGET must be a string or pathname which designates the directory
+into which the generated code should be written.
+
+Example:
+
+  (generate-code \"v5.4\" :go-project \"~/code/cql/cql-on-omop-in-go/\")"
+  (let ((data-model (prepare-model version))
+        (target     (pathname target)))
     (emit data-model format target)
     data-model))
-
-;; (do-it "v5.4" :go-project #P"~/code/cql/cql-on-omop-in-go/")

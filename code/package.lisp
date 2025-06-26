@@ -44,6 +44,11 @@
    #:inverse-join-columns
    #:target-table)
 
+  ;; Emit protocol
   (:export
    #:emit
-   #:output?))
+   #:output?)
+
+  ;; Interface
+  (:export
+   #:generate-code))
