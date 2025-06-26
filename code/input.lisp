@@ -9,11 +9,26 @@
 
 ;;; Loaders
 
-(defun load-data-model (version)
-  (let ((data-model (make-instance 'data-model :name    "OMOP" ; "OMOP CDM"
-                                               :version version)))
-    (load-tables data-model version)
-    (load-fields data-model version)
+(defstruct (omop-cdm
+            (:constructor omop-cdm
+                (directory version
+                 &aux (directory (uiop:ensure-directory-pathname
+                                  directory))))
+            (:conc-name omop-)
+            (:predicate nil)
+            (:copier nil))
+  (directory (error "required") :type pathname :read-only t)
+  (version   (error "required") :type string   :read-only t))
+
+(defmethod load-data-model ((model-designator omop-cdm))
+  (let* ((directory  (omop-directory model-designator))
+         (version    (omop-version model-designator))
+         (data-model (make-instance 'data-model :name    "OMOP"
+                                                :version version)))
+    (format *trace-output* ";; Loading OMOP CDM ~A from ~S~%"
+            version directory)
+    (load-tables directory version data-model)
+    (load-fields directory version data-model)
     data-model))
 
 (defun maybe-string (raw-value)
@@ -42,10 +57,10 @@
           :collect key
           :and :collect maybe-string))
 
-(defun load-tables (data-model version)
-  (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
-         (filename  (format nil "OMOP_CDM~A_Table_Level.csv" version))
-         (pathname  (merge-pathnames filename directory)))
+(defun load-tables (directory version data-model)
+  (let* ((filename (format nil "OMOP_CDM~A_Table_Level.csv" version))
+         (pathname (reduce #'merge-pathnames
+                           (list filename #P"inst/csv/" directory))))
     (destructuring-bind (header &rest tables) (read-csv-file pathname)
       (declare (ignore header))
       (mapcar (lambda (table)
@@ -70,10 +85,10 @@
                                          :description description)))))
               tables))))
 
-(defun load-fields (data-model version)
-  (let* ((directory "~/code/omop/commondatamodel/inst/csv/")
-         (filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
-         (pathname  (merge-pathnames filename directory)))
+(defun load-fields (directory version data-model)
+  (let* ((filename  (format nil "OMOP_CDM~A_Field_Level.csv" version))
+         (pathname  (reduce #'merge-pathnames
+                            (list filename #P "inst/csv/" directory))))
     (destructuring-bind (header &rest fields) (read-csv-file pathname)
       (declare (ignore header))
       (flet ((parse-field (field)
