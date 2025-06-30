@@ -58,8 +58,12 @@
   :depends-on  ("model-info-generator")
 
   :components  ((:module     "code"
-                 :components ((:file "output-mimic-schema-changes")))
+                 :components ((:file "interface-mimic")))
 
                 (:module     "transform"
                  :pathname   "code/transform"
-                 :components ((:file "changes-for-mimic")))))
+                 :components ((:file "changes-for-mimic")))
+
+                (:module     "sql"
+                 :pathname   "code/sql"
+                 :components ((:file "mimic-schema-changes")))))

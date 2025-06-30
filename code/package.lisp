@@ -56,3 +56,8 @@
    #:*default-transforms*
    #:generate-code)
 
+  ;; MIMIC
+  (:export
+   #:changes-for-mimic
+   #:generate-code-for-mimic
+   #:generate-schema-changes-for-mimic))
