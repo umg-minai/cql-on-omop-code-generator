@@ -54,3 +54,21 @@ At the moment, the code generator can produce three kinds of artifacts
    ;; Applying ADD-CONVERSIONS
    ;; Output in #P"/tmp/test/"
    ```
+
+   To generate MIMIC-compatible artifacts, load the MIMIC extensions with
+
+   ```cl
+   (ql:quickload "model-info-generator/mimic")
+   ```
+
+   and change the above invocation to
+
+   ```cl
+   (model-info-generator:generate-code-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.3") :java-project "/tmp/test/")
+   ```
+
+   To generate SQL statements that change the schema of an OMOP CDM-formatted database to be compatible with MIMIC data, use
+
+   ```cl
+   (model-info-generator:generate-schema-changes-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.3") "/tmp/test/")
+   ```
