@@ -99,6 +99,8 @@
                                     &rest rest)
                    field
                  (declare (ignore rest))
+                 (when (equal field-name "\"\"offset\"\"")
+                   (setf field-name "offset"))
                  (let* ((table        (find-table table-name data-model))
                         (foreign-key  (when (string= foreign-key? "Yes")
                                         (cons (string-downcase foreign-table-name)
