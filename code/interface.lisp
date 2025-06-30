@@ -1,18 +1,21 @@
 (cl:in-package #:model-info-generator)
 
-(defmethod prepare-model ((model-designator omop-cdm))
+(defvar *default-transforms* '(add-conversions
+                               add-extra-relations
+                               add-compound-keys
+                               manual-compound-keys
+                               remove-cohort))
+
+(defmethod prepare-model ((model-designator omop-cdm)
+                          &key (transforms *default-transforms*))
   (reduce (lambda (transform model)
             (format *trace-output* ";; Applying ~S~%" transform)
             (funcall transform model))
-          '(add-conversions
-            add-extra-relations
-            add-compound-keys
-            manual-compound-keys
-            remove-cohort)
+          transforms
           :initial-value (load-data-model model-designator)
           :from-end      t))
 
-(defun generate-code (model format target)
+(defun generate-code (model format target &key (transforms *default-transforms*))
   "Generate code for VERSION of OMOP CDM with FORMAT into TARGET.
 
 MODEL must be a `omop-cdm' instance which designates a source
@@ -31,7 +34,7 @@ Example:
   (generate-code (omop-cdm \"/tmp/commondatamodel\" \"v5.4\")
                  :java-project
                  \"~/code/cql/cql-on-omop-in-java/\")"
-  (let ((data-model (prepare-model model))
+  (let ((data-model (prepare-model model :transforms transforms))
         (target     (pathname target)))
     (emit data-model format target)
     data-model))

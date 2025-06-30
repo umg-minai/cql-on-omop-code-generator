@@ -6,6 +6,7 @@
    (#:a  #:alexandria)
    (#:pi #:utilities.print-items))
 
+  ;; Model
   (:export
    #:name
 
@@ -51,4 +52,7 @@
 
   ;; Interface
   (:export
-   #:generate-code))
+   #:omop-cdm
+   #:*default-transforms*
+   #:generate-code)
+
