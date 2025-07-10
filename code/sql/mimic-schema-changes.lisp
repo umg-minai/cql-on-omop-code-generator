@@ -49,8 +49,7 @@
     (flet ((alter-column (change)
              (format target "ALTER TABLE ~A.~A ALTER COLUMN \"~A\" ~A;~%"
                      schema table-name name change)))
-      (when (and (string= data-type "integer")
-                 (not (search "concept_id" name)))
+      (when (mimic-integer->bigint? element)
         (alter-column "TYPE bigint"))
       (when (a:starts-with-subseq "varchar" data-type)
         (alter-column "TYPE text"))

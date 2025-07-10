@@ -1,5 +1,14 @@
 (cl:in-package #:model-info-generator)
 
+(defun mimic-integer->bigint? (column)
+  (let ((name      (name column))
+        (data-type (data-type column)))
+    (and (string= data-type "integer")
+         (or (a:ends-with-subseq "_id" name)
+             (a:ends-with-subseq "_id_1" name)
+             (a:ends-with-subseq "_id_2" name))
+         (not (search "concept_id" name)))))
+
 (defmethod changes-for-mimic ((element data-model))
   (let* ((version     (version element))
          (new-version (format nil "~A.MIMIC" version)))
@@ -11,8 +20,7 @@
   (mapc #'changes-for-mimic (columns element)))
 
 (defmethod changes-for-mimic ((element column))
-  (let ((data-type (data-type element)))
-    (cond ((string= data-type "integer")
-           (reinitialize-instance element :data-type "bigint"))
-          ((a:starts-with-subseq "varchar" data-type)
-           (reinitialize-instance element :data-type "text")))))
+  (cond ((mimic-integer->bigint? element)
+         (reinitialize-instance element :data-type "bigint"))
+        ((a:starts-with-subseq "varchar" (data-type element))
+         (reinitialize-instance element :data-type "text"))))
