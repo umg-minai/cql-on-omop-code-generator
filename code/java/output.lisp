@@ -102,6 +102,7 @@
             import org.opencds.cqf.cql.engine.runtime.DateTime;~@
             ~@
             import java.math.BigDecimal;~@
+            import java.time.ZoneId;~@
             import java.time.ZonedDateTime;~@
             import java.util.List;~@
             import java.util.Objects;~@
@@ -117,7 +118,7 @@
         (a:when-let ((compound-key (mi:compound-key element)))
           (let ((class-name (mi:emit compound-key format target)))
             (j:annotation ("EmbeddedId")
-              (j:out "private ~A compoundId;~@:_~@:_" class-name))))
+              (j:out "private ~A compoundId = new ~:*~A();~@:_~@:_" class-name))))
         ;; Columns
         (mapc (a:rcurry #'mi:emit format target)
               (mi:sorted-elements columns))
@@ -163,18 +164,21 @@
             (j:out "return result.toString();")))))))
 
 (defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
-  (let ((compound-key (mi:compound-key element)))
+  (let ((data-type    (mi:data-type element))
+        (compound-key (mi:compound-key element))
+        (foreign-key  (mi:foreign-key element)))
     (unless compound-key
       (mi:emit (make-field element) format target)
       (format target "~%"))
-    (let ((getter (cond ((string= (mi:data-type element) "datetime")
+    ;; Getter method
+    (let ((getter (cond ((string= data-type "datetime")
                          (make-getter
                           element
                           :type       "DateTime"
                           :conversion (lambda (value)
                                         (format nil "new DateTime(~A.toOffsetDateTime())"
                                                 value))))
-                        ((string= (mi:data-type element) "date")
+                        ((string= data-type "date")
                          (make-getter
                           element
                           :type       "Date"
@@ -184,17 +188,40 @@
                         (t
                          (make-getter element)))))
       (mi:emit getter format target))
-
-    (a:when-let ((foreign-key (mi:foreign-key element)))
-      (let* ((name           (mi:name element))
-             (base-name      (without-id name))
-             (field-name     (field-name<-omop-column base-name))
-             (method-name    (string-capitalize field-name :end 1))
-             (foreign-table  (mi:table foreign-key))
-             (foreign-table-name (mi:name foreign-table))
-                                        ; (foreign-column (column foreign-key))
-             (data-type      (mi::cql-type<-omop-table
-                              format foreign-table-name)))
+    ;; Setter method. If the column has a foreign key, the setter
+    ;; would set the id but not fetch the target entity. Thus, when a
+    ;; foreign key is present, the setter method that accepts a target
+    ;; entity instance has to be used.
+    (unless (or foreign-key (mi:primary-key? element))
+      (let ((setter (cond ((string= data-type "datetime")
+                           (make-setter
+                            element
+                            :type       "DateTime"
+                            :conversion (lambda (value)
+                                          (format nil "~A.getDateTime().toZonedDateTime()"
+                                                  value))))
+                          ((string= data-type "date")
+                           (make-setter
+                            element
+                            :type       "Date"
+                            :conversion (lambda (value)
+                                          (format nil "~A.getDate().atStartOfDay(ZoneId.systemDefault())"
+                                                  value))))
+                          (t
+                           (make-setter element)))))
+        (mi:emit setter format target)))
+    ;; Foreign key
+    (when foreign-key
+      (let* ((name                (mi:name element))
+             (base-name           (without-id name))
+             (field-name          (field-name<-omop-column base-name))
+             (method-name         (string-capitalize field-name :end 1))
+             (foreign-table       (mi:table foreign-key))
+             (foreign-table-name  (mi:name foreign-table))
+             (foreign-column      (mi:column foreign-key))
+             (foreign-column-name (mi:name foreign-column))
+             (data-type           (mi::cql-type<-omop-table
+                                   format foreign-table-name)))
         (j:emitting (target)
           (j:annotations (("ManyToOne" :|targetEntity| (format nil "~A.class" data-type)
                                        :fetch          "FetchType.LAZY")
@@ -203,7 +230,7 @@
               (let ((field-name (field-name<-omop-column name)))
                 (j:annotation ("MapsId" (format nil "\"~A\"" field-name)))))
             (j:out "private ~A ~A;~2%" data-type field-name))
-
+          ;; Getter method
           (j:method ((format nil "get~A" method-name)
                      ()
                      (if (mi:required? element)
@@ -211,7 +238,36 @@
                          (format nil "Optional<~A>" data-type)))
             (if (mi:required? element)
                 (j:out "return this.~A;" field-name)
-                (j:out "return Optional.ofNullable(this.~A);" field-name))))))))
+                (j:out "return Optional.ofNullable(this.~A);" field-name)))
+          ;; Setter method. Given the related entity, set or clear the
+          ;; entity field as well as the foreign id field.
+          (j:method ((format nil "set~A" method-name)
+                     `(("newValue" ,data-type))
+                     "void")
+            (let* ((id-field-name          (field-name<-omop-column name))
+                   (id-field-access        (if (mi:compound-key element)
+                                               (format nil "this.compoundId.~A"
+                                                       id-field-name)
+                                               (format nil "this.~A"
+                                                       id-field-name)))
+                   (foreign-id-field-name  (field-name<-omop-column
+                                            foreign-column-name))
+                   (foreign-id-getter-name (string-capitalize
+                                            foreign-id-field-name :end 1)))
+              (cond ((mi:required? element)
+                     (j:out "this.~A = newValue;~%" field-name)
+                     (j:out "~A = newValue.get~A();"
+                            id-field-access foreign-id-getter-name))
+                    (t
+                     (j:if "newValue == null"
+                           (lambda ()
+                             (j:out "this.~A = null;~%" field-name)
+                             (j:out "~A = null;" id-field-access))
+                           (lambda ()
+                             (j:out "this.~A = newValue;~%" field-name)
+                             (j:out "~A = newValue.get~A();"
+                                    id-field-access
+                                    foreign-id-getter-name))))))))))))
 
 (defmethod mi:emit ((element mi:compound-key)
                     (format  (eql :java))
@@ -326,7 +382,7 @@
                        (lambda ()
                          (join-columns inverse-join-columns))))
        (j:out "private Set<~A> ~A;~@:_~@:_" class-name name)
-       (j:method ((format nil "get~A" (string-capitalize name :end 1))
+       (j:method ((format nil "get~A" (string-capitalize name :end 1)) ; TODO: getter-name<-field-name
                   ()
                   (format nil "Set<~A>" class-name))
          (j:out "return this.~A;" name))))))
@@ -378,6 +434,33 @@
                   (j:out "return Optional.of(~A);"
                          (funcall conversion field-access)))
                 "return Optional.empty();")))))
+
+(defstruct (setter
+            (:constructor
+                make-setter (column
+                             &key (type       (java-type<-omop-type
+                                               (mi:data-type column)))
+                                  (conversion 'identity))))
+  column type conversion)
+(defmethod mi:emit ((element setter) (format (eql :java)) (target stream))
+  (let* ((column       (setter-column element))
+         (name         (mi:name column))
+         (type         (setter-type element))
+         (conversion   (setter-conversion element))
+         (base-name    (field-name<-omop-column name))
+         (method-name  (format nil "set~A" (string-capitalize base-name :end 1)))
+         (field-access (if (mi:compound-key column)
+                           (format nil "this.compoundId.~A" base-name)
+                           (format nil "this.~A" base-name))))
+    (j:method (method-name `(("newValue" ,type)) "void")
+      (if (or (mi:required? column) (eq conversion 'identity))
+          (j:out "~A = ~A;" field-access (funcall conversion "newValue"))
+          (j:if "newValue == null"
+                (lambda ()
+                  (j:out "~A = null;" field-access))
+                (lambda ()
+                  (j:out "~A = ~A;"
+                         field-access (funcall conversion "newValue"))))))))
 
 ;;;
 
