@@ -396,7 +396,8 @@
          (data-type   (java-type<-omop-type (mi:data-type column)))
          (required?   (mi:required? column)))
     (when (mi:primary-key? column)
-      (j:annotation ("Id")))
+      (j:annotation ("Id"))
+      (j:annotation ("GeneratedValue" :strategy "GenerationType.IDENTITY")))
     (j:annotation ("Column" :name       (format nil "\"~A\"" name)
                             :insertable "false"
                             :updatable  "false"
