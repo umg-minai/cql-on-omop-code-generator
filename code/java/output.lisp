@@ -225,7 +225,9 @@
         (j:emitting (target)
           (j:annotations (("ManyToOne" :|targetEntity| (format nil "~A.class" data-type)
                                        :fetch          "FetchType.LAZY")
-                          ("JoinColumn" :name (format nil "\"~A\"" name)))
+                          ("JoinColumn" :name       (format nil "\"~A\"" name)
+                                        :insertable "false"
+                                        :updatable  "false"))
             (when compound-key
               (let ((field-name (field-name<-omop-column name)))
                 (j:annotation ("MapsId" (format nil "\"~A\"" field-name)))))
@@ -399,7 +401,6 @@
       (j:annotation ("Id"))
       (j:annotation ("GeneratedValue" :strategy "GenerationType.IDENTITY")))
     (j:annotation ("Column" :name       (format nil "\"~A\"" name)
-                            :insertable "false"
                             :updatable  "false"
                             :nullable   (if required? "false" "true"))
      (j:out "private ~A ~A;~%" data-type field-name))))
