@@ -1,5 +1,6 @@
 (defsystem "model-info-generator"
   :description "Generates CQL model info and model implementation for the OMOP CDM"
+  :license "Apache 2.0" ; see COPYING
 
   :depends-on  ("alexandria"
                 "utilities.print-items"

@@ -3,6 +3,7 @@
 This repository contains a code generator that consumes a CSV-formatted description of the [OMOP Common Data Model (CDM)](https://www.ohdsi.org/data-standardization/) and produces code and data artifacts that can be used with the [reference implementation](https://github.com/cqframework/clinical_quality_language) of the [Clinical Query Language (CQL)](https://cql.hl7.org/).
 The generated code in combination with hand-written glue-code allows a variant of the above CQL engine, namely [cql-on-omop](https://github.com/umg-minai/cql-on-omop), to process clinical data which is stored in an SQL database system and conforms to the OMOP CDM.
 The code generator works with versions 5.3 and 5.4 of the OMOP CDM and there is additional functionality for adapting the respective OMOP CDM schema so that the database can hold [MIMIC IV](https://github.com/OHDSI/MIMIC) data.
+The contents of the repository is provided under the Apache 2.0 license (see `COPYING` file).
 
 At the moment, the code generator can produce three kinds of artifacts
 
