@@ -90,3 +90,9 @@
   (format target "Interval[OMOPObject.~A, OMOPObject.~A]~@:_"
           (string-downcase (remove #\_ (string-capitalize (name (start-column element)))) :end 1)
           (string-downcase (remove #\_ (string-capitalize (name (end-column element)))) :end 1)))
+
+(defmethod emit ((element to-time-conversion)
+                 (format  (eql :helpers))
+                 (target  stream))
+  (format target "OMOPObject.~A~@:_"
+          (string-downcase (remove #\_ (string-capitalize (name (column element)))) :end 1)))

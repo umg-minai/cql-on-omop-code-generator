@@ -46,3 +46,11 @@
   (:default-initargs
    :to-type       (a:required-argument :to-type)
    :function-name (a:required-argument :function-name)))
+
+(defclass to-time-conversion (conversion)
+  ((%column :initarg :column
+            :reader  column))
+  (:default-initargs
+   :column        (a:required-argument :column)
+   :to-type       (a:required-argument :to-type)
+   :function-name (a:required-argument :function-name)))

@@ -31,10 +31,11 @@
                              (columns table) :key #'name)))
              (let ((neutral-suffix (format nil "_~A" suffix))
                    (start-suffix   (format nil "_start_~A" suffix))
-                   (end-suffix     (format nil "_end_~A"   suffix)))
-               (a:when-let ((start (or (find-matching-column start-suffix)
-                                       (find-matching-column neutral-suffix)))
-                            (end   (find-matching-column end-suffix)))
+                   (end-suffix     (format nil "_end_~A"   suffix))
+                   start end)
+               (when (and (setf start (or (find-matching-column start-suffix)
+                                          (find-matching-column neutral-suffix)))
+                          (setf end   (find-matching-column end-suffix)))
                  (multiple-value-bind (to-type function-name)
                      (a:eswitch (suffix :test #'string=)
                        ("datetime" (values "Interval<System.DateTime>" "ToDateTimeInterval"))
@@ -43,6 +44,17 @@
                                         :from-table    table
                                         :start-column  start
                                         :end-column    end
+                                        :to-type       to-type
+                                        :function-name function-name)
+                         (conversions data-model))))
+               (when start
+                 (multiple-value-bind (to-type function-name)
+                     (a:eswitch (suffix :test #'string=)
+                       ("datetime" (values "System.DateTime" "ToDateTime"))
+                       ("date"     (values "System.Date"     "ToDate")))
+                   (push (make-instance 'to-time-conversion
+                                        :from-table    table
+                                        :column        start
                                         :to-type       to-type
                                         :function-name function-name)
                          (conversions data-model))))))))
