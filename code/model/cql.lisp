@@ -44,5 +44,5 @@
    (%end-column   :initarg :end-column
                   :reader  end-column))
   (:default-initargs
-   :to-type       "System.Interval"
-   :function-name "ToInterval"))
+   :to-type       (a:required-argument :to-type)
+   :function-name (a:required-argument :function-name)))

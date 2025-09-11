@@ -81,10 +81,7 @@
 
           ;; Emit conversion infos.
           (mapc (lambda (conversion)
-                  ;; TODO(jmoringe): Conversion to Interval doesn't
-                  ;; work properly at the moment. Skip for now.
-                  (unless (typep conversion 'to-interval-conversion)
-                    (emit conversion format target)))
+                  (emit conversion format target))
                 (sorted-elements (conversions element)
                                  :key (lambda (conversion)
                                         (concatenate 'string

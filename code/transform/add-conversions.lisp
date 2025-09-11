@@ -35,11 +35,17 @@
                (a:when-let ((start (or (find-matching-column start-suffix)
                                        (find-matching-column neutral-suffix)))
                             (end   (find-matching-column end-suffix)))
-                 (push (make-instance 'to-interval-conversion
-                                      :from-table   table
-                                      :start-column start
-                                      :end-column   end)
-                       (conversions data-model)))))))
+                 (multiple-value-bind (to-type function-name)
+                     (a:eswitch (suffix :test #'string=)
+                       ("datetime" (values "Interval<System.DateTime>" "ToDateTimeInterval"))
+                       ("date"     (values "Interval<System.Date>"     "ToDateInterval")))
+                   (push (make-instance 'to-interval-conversion
+                                        :from-table    table
+                                        :start-column  start
+                                        :end-column    end
+                                        :to-type       to-type
+                                        :function-name function-name)
+                         (conversions data-model))))))))
     (let* ((tables        (a:hash-table-values (tables data-model)))
            (output-tables (remove-if-not #'output? tables)))
       (mapc #'maybe-to-concept output-tables)
