@@ -110,19 +110,23 @@
   (out "@~A" name)
   (when arguments
     (pprint-logical-block (*stream* arguments :prefix "(" :suffix ")")
-      (loop :for argument = (pprint-pop)
-            :if (keywordp argument)
-              :do (out "~A = "
-                       (let ((name (symbol-name argument)))
-                         (cl:if (every #'upper-case-p name)
-                                (string-downcase name)
-                                name)))
-                  (let ((value (pprint-pop)))
-                    (write-or-call value))
-            :else
-              :do (out "~A" argument)
-            :do (pprint-exit-if-list-exhausted)
-                (out ", ~:_"))))
+      (loop :with first? = t
+            :for argument = (pprint-pop)
+            :do (cond ((keywordp argument)
+                       (unless first? (out ", ~:_"))
+                       (out "~A = "
+                            (let ((name (symbol-name argument)))
+                              (cl:if (every #'upper-case-p name)
+                                     (string-downcase name)
+                                     name)))
+                       (let ((value (pprint-pop)))
+                         (write-or-call value))
+                       (setf first? nil))
+                      ((not (null argument))
+                       (unless first? (out ", ~:_"))
+                       (out "~A" argument)
+                       (setf first? nil)))
+                (pprint-exit-if-list-exhausted))))
   (out "~@:_")
   (funcall continuation))
 
