@@ -1,25 +1,39 @@
 (cl:in-package #:model-info-generator.java)
 
+;;; Java format
+
+(defclass java-project ()
+  ((%code-package :initarg  :code-package
+                  :type     list
+                  :reader   code-package
+                  :initform '("de" "umg" "minai" "cqlonomop"))))
+
+(defclass java ()
+  ())
+
+(defmethod mi::file-type ((format java))
+  "java")
+
+(defun java-project (&key (code-package '("de" "umg" "minai" "cqlonomop")))
+  (make-instance 'java-project :code-package code-package))
+
 ;;; Names
 
-(defmethod mi::filename<-omop-table ((format     (eql :java))
-                                     (omop-table string))
+(defmethod mi::filename<-omop-table ((format java) (omop-table string))
   (remove #\_ (string-capitalize omop-table)))
 
-(defmethod mi::cql-type<-omop-table ((format     (eql :java))
-                                     (omop-table string))
+(defmethod mi::cql-type<-omop-table ((format java) (omop-table string))
   (remove #\_ (string-capitalize omop-table)))
 (defun translate-class-name (omop-name)
   (remove #\_ (string-capitalize omop-name)))
 
-(defmethod mi::cql-element<-omop-column ((format      (eql :java))
-                                         (omop-column string))
+(defmethod mi::cql-element<-omop-column ((format java) (omop-column string))
   (string-downcase (remove #\_ (string-capitalize omop-column)) :end 1))
 (defun translate-column-name (omop-name) ; TODO(jmoringe): remove
   (string-downcase (remove #\_ (string-capitalize omop-name)) :end 1))
 
-(defun field-name<-omop-column (omop-column)
-  (mi::cql-element<-omop-column :java omop-column))
+(defun field-name<-omop-column (format omop-column)
+  (mi::cql-element<-omop-column format omop-column))
 
 (defun java-type<-omop-type (omop-type)
   (cond ((string= omop-type "date")                 "ZonedDateTime")
@@ -41,20 +55,21 @@
 ;;;
 
 (defmethod mi:emit ((element mi:data-model)
-                    (format  (eql :java-project))
+                    (format  java-project)
                     (target  pathname))
   (let* ((directory          (uiop:ensure-directory-pathname target))
-         (code-package       '("de" "umg" "minai" "cqlonomop"))
+         (code-package       (code-package format))
          (resource-directory (reduce #'merge-pathnames
                                      (list (format nil "~{~A/~}" code-package)
                                            #P"src/main/resources/"
                                            directory)
-                                     :from-end t)))
+                                     :from-end t))
+         (code-format        (make-instance 'java)))
     (ensure-directories-exist resource-directory)
-    (let ((schema-format (make-instance 'mi::schema-format :associated-format :java)))
+    (let ((schema-format (make-instance 'mi::schema-format :associated-format code-format)))
       (mi:emit element schema-format resource-directory))
     (mi:emit element :helpers resource-directory)
-    (mi:emit element :java (merge-pathnames #P"src/main/java/" directory))
+    (mi:emit element code-format (merge-pathnames #P"src/main/java/" directory))
 
     (format *trace-output* ";; Output in ~S~%" directory)))
 
@@ -62,7 +77,7 @@
 ;;; registering all classes of one OMOP version in a provided
 ;;; MappingInfo instance.
 (defmethod mi:emit :after ((element mi:data-model)
-                           (format  (eql :java))
+                           (format  java)
                            (target  pathname))
   (assert (uiop:directory-pathname-p target))
   (let ((version    (mi:version element))
@@ -75,15 +90,14 @@
           (mapc
            (lambda (table)
              (j:out "mappingInfo.registerDataTypeInfo(\"~A\", new ~:*~AInfo());~@:_"
-                    (mi::cql-type<-omop-table
-                     format (mi:name table))))
+                    (mi::cql-type<-omop-table format (mi:name table))))
            (mi:sorted-elements
             (a:hash-table-values (mi:tables element)))))))))
 
 ;;; Emit a CLASSInfo class for model class CLASS which has additional
 ;;; information about CLASS such as the names of joinable fields for
 ;;; code-based query restrictions.
-(defmethod mi:emit ((element mi:table) (format (eql :java)) (target pathname))
+(defmethod mi:emit ((element mi:table) (format java) (target pathname))
   ;; TODO: (assert (uiop:pathname-directory-p target))
   (let* ((version    (mi:version (mi:parent element)))
          (name       (mi:name element))
@@ -92,7 +106,7 @@
       (mi:emit element format j::*stream*)))
   (mi:emit (make-data-type-info element) format target))
 
-(defmethod mi:emit ((element mi:table) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element mi:table) (format java) (target stream))
   (let* ((name       (mi:name element))
          (class-name (mi::cql-type<-omop-table format name))
          (columns    (mi:columns element))
@@ -163,7 +177,7 @@
               (add "\"}\""))
             (j:out "return result.toString();")))))))
 
-(defmethod mi:emit ((element mi:column) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element mi:column) (format java) (target stream))
   (let ((data-type    (mi:data-type element))
         (compound-key (mi:compound-key element))
         (foreign-key  (mi:foreign-key element)))
@@ -214,7 +228,7 @@
     (when foreign-key
       (let* ((name                (mi:name element))
              (base-name           (without-id name))
-             (field-name          (field-name<-omop-column base-name))
+             (field-name          (field-name<-omop-column format base-name))
              (method-name         (string-capitalize field-name :end 1))
              (foreign-table       (mi:table foreign-key))
              (foreign-table-name  (mi:name foreign-table))
@@ -229,7 +243,7 @@
                                         :insertable "false"
                                         :updatable  "false"))
             (when compound-key
-              (let ((field-name (field-name<-omop-column name)))
+              (let ((field-name (field-name<-omop-column format name)))
                 (j:annotation ("MapsId" (format nil "\"~A\"" field-name)))))
             (j:out "private ~A ~A;~2%" data-type field-name))
           ;; Getter method
@@ -246,14 +260,14 @@
           (j:method ((format nil "set~A" method-name)
                      `(("newValue" ,data-type))
                      "void")
-            (let* ((id-field-name          (field-name<-omop-column name))
+            (let* ((id-field-name          (field-name<-omop-column format name))
                    (id-field-access        (if (mi:compound-key element)
                                                (format nil "this.compoundId.~A"
                                                        id-field-name)
                                                (format nil "this.~A"
                                                        id-field-name)))
                    (foreign-id-field-name  (field-name<-omop-column
-                                            foreign-column-name))
+                                            format foreign-column-name))
                    (foreign-id-getter-name (string-capitalize
                                             foreign-id-field-name :end 1)))
               (cond ((mi:required? element)
@@ -271,9 +285,7 @@
                                     id-field-access
                                     foreign-id-getter-name))))))))))))
 
-(defmethod mi:emit ((element mi:compound-key)
-                    (format  (eql :java))
-                    (target  stream))
+(defmethod mi:emit ((element mi:compound-key) (format java) (target stream))
   (let ((name    "CompoundId")
         (columns (sort (copy-list (mi:columns element)) #'string<
                        :key #'mi:name)))
@@ -300,7 +312,7 @@
                               (j:out "other.getClass() == this.getClass()")
                               (mapc (lambda (column)
                                       (let ((field-name (field-name<-omop-column
-                                                         (mi:name column))))
+                                                         format (mi:name column))))
                                         (j:out "~@:_&& Objects.equals(this.~A, otherInstance.~:*~A)"
                                                field-name)))
                                     columns)))
@@ -318,7 +330,7 @@
                             (setf first? nil)
                             (j:out ", "))
                         (let ((field-name (field-name<-omop-column
-                                           (mi:name column))))
+                                           format (mi:name column))))
                           (j:out "this.~A" field-name))))
                     columns))))
         ;; toString method
@@ -335,7 +347,7 @@
                             (setf first? nil)
                             (add "\", \""))
                         (let ((field-name (field-name<-omop-column
-                                           (mi:name column))))
+                                           format (mi:name column))))
                           (add "\"~A=\"" field-name)
                           (add "this.~:A" field-name))))
                     columns)
@@ -345,9 +357,7 @@
     (j:out "~@:_")
     name))
 
-(defmethod mi:emit ((element mi:extra-relation)
-                    (format  (eql :java))
-                    (target  stream))
+(defmethod mi:emit ((element mi:extra-relation) (format java) (target stream))
   (let* ((name                 (mi:name element))
          (foreign-table        (mi:table element))
          (table-name           (mi:name foreign-table))
@@ -390,7 +400,7 @@
          (j:out "return this.~A;" name))))))
 
 (defstruct (field (:constructor make-field (column))) column)
-(defmethod mi:emit ((element field) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element field) (format java) (target stream))
   (let* ((column      (field-column element))
          (name        (mi:name column))
          (method-name (mi::cql-element<-omop-column format name))
@@ -412,7 +422,7 @@
                                                (mi:data-type column)))
                                   (conversion 'identity))))
   column type conversion)
-(defmethod mi:emit ((element getter) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element getter) (format java) (target stream))
   (let* ((column       (getter-column element))
          (return-type  (getter-type element))
          (conversion   (getter-conversion element))
@@ -444,12 +454,12 @@
                                                (mi:data-type column)))
                                   (conversion 'identity))))
   column type conversion)
-(defmethod mi:emit ((element setter) (format (eql :java)) (target stream))
+(defmethod mi:emit ((element setter) (format java) (target stream))
   (let* ((column       (setter-column element))
          (name         (mi:name column))
          (type         (setter-type element))
          (conversion   (setter-conversion element))
-         (base-name    (field-name<-omop-column name))
+         (base-name    (field-name<-omop-column format name))
          (method-name  (format nil "set~A" (string-capitalize base-name :end 1)))
          (field-access (if (mi:compound-key column)
                            (format nil "this.compoundId.~A" base-name)
@@ -472,9 +482,7 @@
             (:copier nil))
   (table (error "required") :read-only t))
 
-(defmethod mi:emit ((element data-type-info)
-                    (format  (eql :java))
-                    (target  pathname))
+(defmethod mi:emit ((element data-type-info) (format java) (target pathname))
   (let* ((table           (data-type-info-table element))
          (version         (mi:version (mi:parent table)))
          (name            (mi:name table))
@@ -483,9 +491,7 @@
     (j:with-output-to-java-file (target (list "OMOP" version) info-class-name)
       (mi:emit element format j::*stream*))))
 
-(defmethod mi:emit ((element data-type-info)
-                    (format  (eql :java))
-                    (target  stream))
+(defmethod mi:emit ((element data-type-info) (format java) (target stream))
   (let* ((table      (data-type-info-table element))
          (name       (mi:name table))
          (columns    (mi:columns table))

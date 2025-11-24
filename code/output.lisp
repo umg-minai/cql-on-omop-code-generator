@@ -1,5 +1,8 @@
 (cl:in-package #:model-info-generator)
 
+(defmethod file-type ((format symbol))
+  (string-downcase format))
+
 (defmethod emit ((element data-model) (format t) (target pathname))
   (assert (uiop:directory-pathname-p target))
   (ensure-directories-exist target)
@@ -8,7 +11,7 @@
      (when (output? element)
        (let* ((name       (name element))
               (filename   (filename<-omop-table format name))
-              (type       (string-downcase format))
+              (type       (file-type format))
               (filename   (make-pathname :name filename :type type))
               (pathname   (merge-pathnames filename target)))
          (emit element format pathname))))
