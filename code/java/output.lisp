@@ -2,20 +2,28 @@
 
 ;;; Java format
 
-(defclass java-project ()
+(defclass schema-mixin ()
+  ((%schema :initarg  :schema
+            :type     (or null string)
+            :reader   schema
+            :initform nil)))
+
+(defclass java-project (schema-mixin)
   ((%code-package :initarg  :code-package
                   :type     list
                   :reader   code-package
                   :initform '("de" "umg" "minai" "cqlonomop"))))
 
-(defclass java ()
-  ())
+(defclass java (schema-mixin)
+  ((%schema :initarg :schema
+            :reader  schema)))
 
 (defmethod mi::file-type ((format java))
   "java")
 
-(defun java-project (&key (code-package '("de" "umg" "minai" "cqlonomop")))
-  (make-instance 'java-project :code-package code-package))
+(defun java-project (&key (schema       "cds_cdm")
+                          (code-package '("de" "umg" "minai" "cqlonomop")))
+  (make-instance 'java-project :schema schema :code-package code-package))
 
 ;;; Names
 
@@ -64,7 +72,7 @@
                                            #P"src/main/resources/"
                                            directory)
                                      :from-end t))
-         (code-format        (make-instance 'java)))
+         (code-format        (make-instance 'java :schema (schema format))))
     (ensure-directories-exist resource-directory)
     (let ((schema-format (make-instance 'mi::schema-format :associated-format code-format)))
       (mi:emit element schema-format resource-directory))
@@ -107,7 +115,8 @@
   (mi:emit (make-data-type-info element) format target))
 
 (defmethod mi:emit ((element mi:table) (format java) (target stream))
-  (let* ((name       (mi:name element))
+  (let* ((schema     (schema format))
+         (name       (mi:name element))
          (class-name (mi::cql-type<-omop-table format name))
          (columns    (mi:columns element))
          (concept?   (string= name "concept")))
@@ -125,7 +134,8 @@
 
     (j:annotations (("Entity")
                     ("Table" (format nil "name = \"~A\"" name)
-                             (format nil "schema = \"cds_cdm\""))) ; TODO: don't hard-code
+                             (when schema
+                               (format nil "schema = \"~A\"" schema))))
       (j:class (class-name)
         ;; If applicable, generate CompoundKey inner class and
         ;; compoundKey field.
@@ -383,8 +393,8 @@
      (j:annotations
          (("ManyToMany" :|targetEntity| (format nil "~A.class" class-name)
                         :fetch          "FetchType.LAZY")
-          ("JoinTable" :schema
-                       "\"cds_cdm\"" ; TODO(jmoringe: don't hard-code
+          ("JoinTable" (alexandria:when-let ((schema (schema format)))
+                         (format nil "schema = \"~A\"" schema))
                        :name
                        (format nil "\"~A\"" table-name)
                        :|joinColumns|
