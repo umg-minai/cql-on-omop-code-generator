@@ -44,6 +44,9 @@
 (defmethod find-column ((name string) (table table))
   (gethash name (%columns table)))
 
+(defmethod (setf find-column) ((new-value null) (name string) (table table))
+  (remhash name (%columns table)))
+
 (defmethod (setf find-column) ((new-value t) (name string) (table table))
   (setf (parent new-value)              table
         (gethash name (%columns table)) new-value))
@@ -73,7 +76,7 @@
    (%primary-key? :initarg  :primary-key?
                   :reader   primary-key?)
    (%forgein-key  :initarg  :foreign-key
-                  :reader   foreign-key
+                  :accessor foreign-key
                   :initform nil)
    (%compound-key :initarg  :compound-key
                   :accessor compound-key
