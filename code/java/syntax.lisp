@@ -5,6 +5,9 @@
   (:shadow
    #:block
    #:if
+   #:cond
+   #:or
+   #:and
    #:class
    #:method)
 
@@ -13,8 +16,14 @@
    #:out)
 
   (:export
+   #:comment
    #:block
    #:if
+   #:cond
+   #:emit-or
+   #:or
+   #:emit-and
+   #:and
    #+unused #:for
    #+unused #:func
    #:class
@@ -47,8 +56,14 @@
   (etypecase string-or-continuation
     (string
      (write-string string-or-continuation *stream*))
-    ((or symbol cl:function)
+    ((cl:or symbol cl:function)
      (funcall string-or-continuation))))
+
+(defun comment (format-control &rest format-arguments)
+  (let ((stream *stream*))
+    (pprint-logical-block (stream nil :per-line-prefix "// ")
+      (apply #'format stream format-control format-arguments))
+    (pprint-newline :mandatory stream)))
 
 (defun emitting-block (continuation newline? &key (indent 4))
   (out "{~@:_")
@@ -73,6 +88,45 @@
 
 (defmacro if (test then &optional else)
   `(emitting-if ,test ,then ,else))
+
+(defmacro cond (&rest clauses)
+  (cl:if (null clauses)
+         nil
+         (destructuring-bind ((test &rest body) &rest rest) clauses
+           (cl:if (member test '(t otherwise))
+                  (progn
+                    (assert (null rest))
+                    `(progn ,@body))
+                  `(if ,test
+                       (progn ,@body)
+                       ,(cl:if (null (cdr rest))
+                               `(cond ,@rest)
+                               `(lambda () (cond ,@rest))))))))
+
+(defun emit-operator (symbol empty-value &rest expressions)
+  (case (length expressions)
+    (0 (out empty-value))
+    (1 (write-or-call (first expressions)))
+    (t (let ((stream *stream*))
+         (pprint-logical-block (stream expressions :prefix "(" :suffix ")")
+           (loop :for (expression next) :on expressions
+                 :do (out "(")
+                     (write-or-call expression)
+                     (out ")")
+                 :when next
+                   :do (out " ~:_~A " symbol)))))))
+
+(defun emit-or (&rest expressions)
+  (apply #'emit-operator "||" "false" expressions))
+
+(defmacro or (&rest expressions)
+  `(emit-or ,@expressions))
+
+(defun emit-and (&rest expressions)
+  (apply #'emit-operator "&&" "true" expressions))
+
+(defmacro and (&rest expressions)
+  `(emit-and ,@expressions))
 
 (defun emitting-class (continuation name modifiers superclasses)
   (out "~{~A ~}class ~A~{ ~{~(~A~) ~A~}~^,~} "
@@ -112,20 +166,20 @@
     (pprint-logical-block (*stream* arguments :prefix "(" :suffix ")")
       (loop :with first? = t
             :for argument = (pprint-pop)
-            :do (cond ((keywordp argument)
-                       (unless first? (out ", ~:_"))
-                       (out "~A = "
-                            (let ((name (symbol-name argument)))
-                              (cl:if (every #'upper-case-p name)
-                                     (string-downcase name)
-                                     name)))
-                       (let ((value (pprint-pop)))
-                         (write-or-call value))
-                       (setf first? nil))
-                      ((not (null argument))
-                       (unless first? (out ", ~:_"))
-                       (out "~A" argument)
-                       (setf first? nil)))
+            :do (cl:cond ((keywordp argument)
+                          (unless first? (out ", ~:_"))
+                          (out "~A = "
+                               (let ((name (symbol-name argument)))
+                                 (cl:if (every #'upper-case-p name)
+                                        (string-downcase name)
+                                        name)))
+                          (let ((value (pprint-pop)))
+                            (write-or-call value))
+                          (setf first? nil))
+                         ((not (null argument))
+                          (unless first? (out ", ~:_"))
+                          (out "~A" argument)
+                          (setf first? nil)))
                 (pprint-exit-if-list-exhausted))))
   (out "~@:_")
   (funcall continuation))

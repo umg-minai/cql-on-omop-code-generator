@@ -308,25 +308,24 @@
         ;; equals method
         (j:annotation ("Override")
           (j:method ("equals" '(("other" "Object")) "boolean")
-            (j:if "this == other"
-                  "return true;"
-                  (lambda ()
-                    (j:if (lambda ()
-                            (j:out "other instanceof ~A otherInstance"
-                                   name))
-                          (lambda ()
-                            (j:out "return ")
-                            (pprint-logical-block (j::*stream* (list element)
-                                                               :prefix "("
-                                                               :suffix ");")
-                              (j:out "other.getClass() == this.getClass()")
-                              (mapc (lambda (column)
-                                      (let ((field-name (field-name<-omop-column
-                                                         format (mi:name column))))
-                                        (j:out "~@:_&& Objects.equals(this.~A, otherInstance.~:*~A)"
-                                               field-name)))
-                                    columns)))
-                          "return false;")))))
+            (j:cond ("this == other"
+                     "return true;")
+                    ((lambda ()
+                       (j:out "other instanceof ~A otherInstance" name))
+                     (lambda ()
+                       (j:out "return ")
+                       (apply #'j:emit-and
+                              "other.getClass() == this.getClass()"
+                              (mapcar (lambda (column)
+                                        (let ((field-name (field-name<-omop-column
+                                                           format (mi:name column))))
+                                          (lambda ()
+                                            (j:out "Objects.equals(this.~A, otherInstance.~:*~A)"
+                                                   field-name))))
+                                      columns))
+                       (j:out ";")))
+                    (t
+                     "return false;"))))
         ;; hashCode method
         (j:annotation ("Override")
           (j:method ("hashCode" '() "int")
@@ -484,7 +483,7 @@
                   (j:out "~A = ~A;"
                          field-access (funcall conversion "newValue"))))))))
 
-;;;
+;;; Java class <type>Info
 
 (defstruct (data-type-info
             (:constructor make-data-type-info (table))
@@ -531,9 +530,13 @@
             (j:out "return null;")))
 
       (j:method ("isJoinableCodePath" '(("codePath" "String")) "boolean")
-        (j:out "return ~@<~:[false~;~:*~{codePath.equals(\"~A\")~^ ~@:_|| ~}~]~@:>;"
+        (j:out "return ")
+        (apply #'j:emit-or
                (loop :for column :in (mi:columns table)
                      :for name   =   (mi:name column)
                      :when (a:ends-with-subseq "concept_id" name)
-                       :collect (mi::cql-element<-omop-column
-                                 format (without-id name))))))))
+                       :collect (let ((path (mi::cql-element<-omop-column
+                                             format (without-id name))))
+                                  (lambda ()
+                                    (j:out "codePath.equals(\"~A\")" path)))))
+        (j:out ";")))))
