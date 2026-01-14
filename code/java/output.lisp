@@ -514,9 +514,18 @@
 
       (j:method ("contextPath" '(("contextName" "String")) "String")
         (if (find "person_id" columns :test #'equal :key #'mi:name)
-            (j:if "contextName.equals(\"Patient\")"
-                  (lambda () (j:out "return \"~A\";" "person"))
-                  "return null;")
+            (progn
+              (j:comment
+               "~@<contextName can be \"Person\" when a \"related context ~
+                \"retrieve\" is used as in~@:_~
+                ~2@Tdefine p: First([Person])~@:_~
+                ~2@Tdefine v: First([p -> ~A])~@:_~
+                .~@:>"
+               class-name)
+              (j:if (lambda () (j:or "contextName.equals(\"Patient\")"
+                                     "contextName.equals(\"Person\")"))
+                    (lambda () (j:out "return \"~A\";" "person"))
+                    "return null;"))
             (j:out "return null;")))
 
       (j:method ("infoForContext"
@@ -524,9 +533,22 @@
                    ("contextValue" "Object"))
                  "ContextInfo")
         (if (find "person_id" columns :test #'equal :key #'mi:name)
-            (j:if "contextPath.equals(\"person\") && (contextValue instanceof Person person)"
-                  "return new ContextInfo(\"personId\", person.getPersonId());"
-                  "return null;")
+            (j:cond ("!contextPath.equals(\"person\")"
+                     "return null;")
+                    ("contextValue instanceof Person person"
+                     "return new ContextInfo(\"personId\", person.getPersonId());")
+                    ("contextValue instanceof String string"
+                     (lambda ()
+                       (j:comment
+                        "~@<contextValue can be a string when \"related ~
+                         context retrieves\" are used as in~@:_~
+                         ~2@Tdefine p: First([Person])~@:_~
+                         ~2@Tdefine v: First([p -> ~A])~@:_~
+                         .~@:>"
+                        class-name)
+                       (j:out "return new ContextInfo(\"personId\", string);")))
+                    (t
+                     "return null;"))
             (j:out "return null;")))
 
       (j:method ("isJoinableCodePath" '(("codePath" "String")) "boolean")
