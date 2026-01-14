@@ -72,7 +72,7 @@
                      (cxml:attribute "name"       name)
                      (cxml:attribute "keyElement" key-element)
                      (when (equal name "Patient")
-                       (cxml:attribute "birthDateElement" "birthDatetime"))
+                       (cxml:attribute "birthDateElement" "bestEffortBirthDate"))
                      (cxml:with-element* ("ns4" "contextType")
                        (cxml:attribute "namespace" namespace)
                        (cxml:attribute "name"      type)))))
@@ -119,7 +119,13 @@
                      (list (make-instance
                             'column :name        "concept"
                                     :data-type   "Concept"
-                                    :description '(:description "Required as a valid code path in retrieve implementation.")))))))))
+                                    :description '(:description "Required as a valid code path in retrieve implementation."))))
+                   (when (string= (name element) "person")
+                     ;; Required as code path in retrieve
+                     (list (make-instance
+                            'column :name        "best_effort_birth_date"
+                                    :data-type   "System.Date"
+                                    :description '(:description "Birth date scraped form different attributes.")))))))))
 
 (defmethod emit ((element column) (format schema-format) (target t))
   (let ((name      (name element))

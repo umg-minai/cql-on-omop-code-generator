@@ -114,6 +114,31 @@
       (mi:emit element format j::*stream*)))
   (mi:emit (make-data-type-info element) format target))
 
+(defun emit-best-effort-birth-date-method ()
+  (j:method ("getBestEffortBirthDate" '() "Date")
+    (j:cond ("this.birthDatetime != null"
+             (lambda ()
+               (j:out "final var temp = this.birthDatetime.toOffsetDateTime();~@
+                       return new Date(temp.getYear(), temp.getMonthValue(), temp.getDayOfMonth());")))
+            ("this.yearOfBirth != null"
+             (lambda ()
+               (j:out "var precision = org.opencds.cqf.cql.engine.runtime.Precision.YEAR;~@
+                       var month = 1;~@
+                       var day = 1;~%")
+               (j:if "this.monthOfBirth != null"
+                     (lambda ()
+                       (j:out "month = this.monthOfBirth;~@
+                               precision = org.opencds.cqf.cql.engine.runtime.Precision.MONTH;")))
+               (j:if "this.dayOfBirth != null"
+                     (lambda ()
+                       (j:out "day = this.dayOfBirth;~@
+                               precision = org.opencds.cqf.cql.engine.runtime.Precision.DAY;")))
+               (j:out "var date = new Date(this.yearOfBirth, month, day);~@
+                       date.setPrecision(precision);~@
+                       return date;")))
+            (t
+             "return null;"))))
+
 (defmethod mi:emit ((element mi:table) (format java) (target stream))
   (let* ((schema     (schema format))
          (name       (mi:name element))
@@ -149,6 +174,9 @@
         ;; Generate extra relationships if any.
         (mapc (a:rcurry #'mi:emit format target)
               (mi:sorted-elements (mi:extra-relations element)))
+        ;; For Person, generate a bestEffortBirthDate method.
+        (when (string= name "person")
+          (emit-best-effort-birth-date-method))
         ;; If possible, generate a toString method.
         (j:annotation ("Override")
           (j:method ("toString" '() "String")
