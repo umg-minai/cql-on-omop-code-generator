@@ -46,8 +46,7 @@
 (defun java-type<-omop-type (omop-type)
   (cond ((string= omop-type "date")                 "ZonedDateTime")
         ((string= omop-type "datetime")             "ZonedDateTime")
-        ((or (string= omop-type "integer")
-             (string= omop-type "Integer"))         "Integer")
+        ((string= omop-type "integer")              "Integer")
         ((string= omop-type "bigint")               "Long")
         ((string= omop-type "float")                "BigDecimal")
         ((string= omop-type "text")                 "String")
@@ -207,7 +206,7 @@
                        (let ((name (mi::cql-type<-omop-table
                                     format (without-id (mi:name concept)))))
                          (cond ((mi:required? concept)
-                                (j:block (nil)
+                                (j:block (t)
                                   (add "\", concept='\"")
                                   (add "this.get~A().getConceptName()" name)
                                   (add "\"'\"")))
