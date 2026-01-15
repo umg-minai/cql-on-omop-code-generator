@@ -316,8 +316,19 @@
                                             foreign-id-field-name :end 1)))
               (cond ((mi:required? element)
                      (j:out "this.~A = newValue;~%" field-name)
-                     (j:out "~A = newValue.get~A();"
-                            id-field-access foreign-id-getter-name))
+                     (cond ((member (mi:data-type foreign-column)
+                                    '("integer" "bigint")
+                                    :test #'string=)
+                            (j:comment "We allow explicitly settings the ~
+                                        (ostensibly required) field to null ~
+                                        and the associated foreign key to 0 so ~
+                                        that users can create broken ~
+                                        references when they absolutely must.")
+                            (j:out "~A = (newValue != null) ? newValue.get~A() : 0;"
+                                   id-field-access foreign-id-getter-name))
+                           (t
+                            (j:out "~A = newValue.get~A();"
+                                   id-field-access foreign-id-getter-name))))
                     (t
                      (j:if "newValue == null"
                            (lambda ()
