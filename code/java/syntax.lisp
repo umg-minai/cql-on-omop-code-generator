@@ -62,7 +62,22 @@
 (defun comment (format-control &rest format-arguments)
   (let ((stream *stream*))
     (pprint-logical-block (stream nil :per-line-prefix "// ")
-      (apply #'format stream format-control format-arguments))
+      (let ((string (apply #'format nil format-control format-arguments)))
+        (loop :for previous = 0 :then (1+ index)
+              :for index    = (position-if
+                               (lambda (character)
+                                 (member character '(#\Space #\Newline #\Tab)))
+                               string :start previous)
+              :do (write-string string stream :start previous
+                                              :end   index)
+                  (cl:cond ((null index))
+                           ((eql (aref string index) #\Newline)
+                            (pprint-newline :mandatory stream))
+                           (t
+                            (write-char #\Space stream)
+                            (pprint-newline :fill stream)))
+              :when (null index)
+                :do (loop-finish))))
     (pprint-newline :mandatory stream)))
 
 (defun emitting-block (continuation newline? &key (indent 4))
@@ -197,7 +212,8 @@
 
 (defun call-with-output-to-java-file (continuation
                                       base-directory
-                                      package class-name)
+                                      package class-name
+                                      &key generation-source)
   (let* ((package  (mapcar (alexandria:curry #'remove #\.) package))
          (filename (merge-pathnames
                     (make-pathname :name      class-name
@@ -208,10 +224,14 @@
     (alexandria:with-output-to-file (stream filename :if-exists :supersede)
       (pprint-logical-block (stream (list class-name))
         (emitting (stream)
+          (comment "This file has been generated~:[~; from ~:*~A~] - do not edit"
+                   generation-source)
           (out "package ~{~A~^.~};~@:_~@:_" package)
           (funcall continuation))))))
 
-(defmacro with-output-to-java-file ((base-directory package class-name)
+(defmacro with-output-to-java-file ((base-directory package class-name
+                                     &rest args &key generation-source)
                                     &body body)
+  (declare (ignore generation-source))
   `(call-with-output-to-java-file
-    (lambda () ,@body) ,base-directory ,package ,class-name))
+    (lambda () ,@body) ,base-directory ,package ,class-name ,@args))

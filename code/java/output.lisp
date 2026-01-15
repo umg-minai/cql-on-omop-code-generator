@@ -90,7 +90,10 @@
   (assert (uiop:directory-pathname-p target))
   (let ((version    (mi:version element))
         (class-name "Register"))
-    (j:with-output-to-java-file (target (list "OMOP" version) class-name)
+    (j:with-output-to-java-file
+        (target (list "OMOP" version) class-name
+                :generation-source (format nil "a description of the OMOP CDM ~A"
+                                           version))
       (j:out "import OMOP.MappingInfo;~2%")
       (j:class (class-name)
         (j:method ("register" '(("mappingInfo" "MappingInfo")) "void"
@@ -110,7 +113,10 @@
   (let* ((version    (mi:version (mi:parent element)))
          (name       (mi:name element))
          (class-name (mi::cql-type<-omop-table format name)))
-    (j:with-output-to-java-file (target (list "OMOP" version) class-name)
+    (j:with-output-to-java-file
+        (target (list "OMOP" version) class-name
+                :generation-source (format nil "a description of the OMOP CDM ~A"
+                                           version))
       (mi:emit element format j::*stream*)))
   (mi:emit (make-data-type-info element) format target))
 
@@ -525,7 +531,10 @@
          (name            (mi:name table))
          (class-name      (mi::cql-type<-omop-table format name))
          (info-class-name (format nil "~AInfo" class-name)))
-    (j:with-output-to-java-file (target (list "OMOP" version) info-class-name)
+    (j:with-output-to-java-file
+        (target (list "OMOP" version) info-class-name
+                :generation-source (format nil "a description of the OMOP CDM ~A"
+                                           version))
       (mi:emit element format j::*stream*))))
 
 (defmethod mi:emit ((element data-type-info) (format java) (target stream))
