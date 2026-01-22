@@ -49,8 +49,12 @@
                                                          :column     column)))
               (a:when-let ((value (find-column
                                    (lambda (name)
-                                     (search "value_as_number" name))))
+                                     (or (search "value_as_number" name)
+                                         ;; DrugStrength
+                                         (string= name "amount_value")))))
                            (unit  (find-column
+                                   ;; DrugStrength
+                                   (a:curry #'string= "amount_unit_concept_id")
                                    (a:curry #'search "unit_concept"))))
                 (list (make-instance 'to-quantity-conversion
                                      :from-table   table
