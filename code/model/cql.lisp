@@ -38,6 +38,12 @@
    :to-type       "System.Quantity"
    :function-name "ToQuantity"))
 
+(defmethod pi:print-items append ((object to-quantity-conversion))
+  (let ((value-column (name (value-column object)))
+        (unit-column  (name (unit-column object))))
+    `(((:value (:after :function-name)) " ~A"   ,value-column)
+      ((:unit  (:after :value))         " [~A]" ,unit-column))))
+
 (defclass to-interval-conversion (conversion)
   ((%start-column :initarg :start-column
                   :reader  start-column)
