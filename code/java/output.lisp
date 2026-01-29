@@ -265,27 +265,30 @@
     ;; that are not in the database. This ability is useful when
     ;; reading from one OMOP database and writing results to a
     ;; different database.
-    (when (or (and (selected? format :unsafe-set-concept-id)
-                   foreign-key
-                   (equal (mi:name (mi:table foreign-key)) "concept"))
-              (not (or foreign-key (mi:primary-key? element))))
-      (let ((setter (cond ((string= data-type "datetime")
-                           (make-setter
-                            element
-                            :type       "DateTime"
-                            :conversion (lambda (value)
-                                          (format nil "~A.getDateTime().toZonedDateTime()"
-                                                  value))))
-                          ((string= data-type "date")
-                           (make-setter
-                            element
-                            :type       "Date"
-                            :conversion (lambda (value)
-                                          (format nil "~A.getDate().atStartOfDay(ZoneId.systemDefault())"
-                                                  value))))
-                          (t
-                           (make-setter element)))))
-        (mi:emit setter format target)))
+    (cond ((or (and (selected? format :unsafe-set-concept-id)
+                    foreign-key
+                    (equal (mi:name (mi:table foreign-key)) "concept")))
+           (j:docstring "Warning: This setter can be used to create dangling ~
+                         references to (non-existing) concepts. ")
+           (mi:emit (make-setter element) format target))
+          ((not (or foreign-key (mi:primary-key? element)))
+           (let ((setter (cond ((string= data-type "datetime")
+                                (make-setter
+                                 element
+                                 :type       "DateTime"
+                                 :conversion (lambda (value)
+                                               (format nil "~A.getDateTime().toZonedDateTime()"
+                                                       value))))
+                               ((string= data-type "date")
+                                (make-setter
+                                 element
+                                 :type       "Date"
+                                 :conversion (lambda (value)
+                                               (format nil "~A.getDate().atStartOfDay(ZoneId.systemDefault())"
+                                                       value))))
+                               (t
+                                (make-setter element)))))
+             (mi:emit setter format target))))
     ;; Foreign key
     (when foreign-key
       (let* ((name                (mi:name element))
