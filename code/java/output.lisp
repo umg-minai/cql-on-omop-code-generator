@@ -208,7 +208,9 @@
                          (cond ((mi:required? concept)
                                 (j:block (t)
                                   (add "\", concept='\"")
-                                  (add "this.get~A().getConceptName()" name)
+                                  (j:if (lambda () (j:out "this.get~A() != null" name))
+                                        (lambda () (add "this.get~A().getConceptName()" name))
+                                        (lambda () (add "\"«broken relation»\"")))
                                   (add "\"'\"")))
                                (t
                                 (j:out "this.get~A().ifPresent(concept -> " name)
@@ -249,7 +251,15 @@
     ;; would set the id but not fetch the target entity. Thus, when a
     ;; foreign key is present, the setter method that accepts a target
     ;; entity instance has to be used.
-    (unless (or foreign-key (mi:primary-key? element))
+    ;;
+    ;; That said, we still generate a setter if the foreign table is
+    ;; "concept" so that users can create references to OMOP concepts
+    ;; that are not in the database. This ability is useful when
+    ;; reading from one OMOP database and writing results to a
+    ;; different database.
+    (when (or (and foreign-key
+                   (equal (mi:name (mi:table foreign-key)) "concept"))
+              (not (or foreign-key (mi:primary-key? element))))
       (let ((setter (cond ((string= data-type "datetime")
                            (make-setter
                             element
