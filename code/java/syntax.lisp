@@ -17,6 +17,7 @@
 
   (:export
    #:comment
+   #:docstring
    #:block
    #:if
    #:cond
@@ -59,9 +60,11 @@
     ((cl:or symbol cl:function)
      (funcall string-or-continuation))))
 
-(defun comment (format-control &rest format-arguments)
+(defun %comment (prefix per-line-prefix suffix format-control &rest format-arguments)
   (let ((stream *stream*))
-    (pprint-logical-block (stream nil :per-line-prefix "// ")
+    (when prefix
+      (format stream "~A~@:_" prefix))
+    (pprint-logical-block (stream nil :per-line-prefix per-line-prefix)
       (let ((string (apply #'format nil format-control format-arguments)))
         (loop :for previous = 0 :then (1+ index)
               :for index    = (position-if
@@ -78,13 +81,21 @@
                             (pprint-newline :fill stream)))
               :when (null index)
                 :do (loop-finish))))
+    (when suffix
+      (format stream "~@:_~A" suffix))
     (pprint-newline :mandatory stream)))
+
+(defun comment (format-control &rest format-arguments)
+  (apply #'%comment nil "// " nil format-control format-arguments))
+
+(defun docstring (format-control &rest format-arguments)
+  (apply #'%comment "/**" " * " " */" format-control format-arguments))
 
 (defun emitting-block (continuation newline? &key (indent 4))
   (out "{~@:_")
   (let ((prefix (coerce-to-indent indent)))
-   (pprint-logical-block (*stream* (list continuation) :per-line-prefix prefix)
-     (write-or-call continuation)))
+    (pprint-logical-block (*stream* (list continuation) :per-line-prefix prefix)
+      (write-or-call continuation)))
   (out "~@:_}~:[~;~%~]" newline?))
 
 (defmacro block ((&optional (newline? t)) &body body)
