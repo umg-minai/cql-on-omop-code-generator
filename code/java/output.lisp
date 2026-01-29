@@ -15,8 +15,13 @@
                   :initform '("de" "umg" "minai" "cqlonomop"))))
 
 (defclass java (schema-mixin)
-  ((%schema :initarg :schema
-            :reader  schema)))
+  ((%schema   :initarg  :schema
+              :reader   schema)
+   (%features :initarg  :features
+              :type     list ; of keywords
+              :reader   features
+              :initform '(:unsafe-set-related
+                          :unsafe-set-concept-id))))
 
 (defmethod mi::file-type ((format java))
   "java")
@@ -24,6 +29,9 @@
 (defun java-project (&key (schema       "cds_cdm")
                           (code-package '("de" "umg" "minai" "cqlonomop")))
   (make-instance 'java-project :schema schema :code-package code-package))
+
+(defmethod selected? ((format java) (feature t))
+  (member feature (features format)))
 
 ;;; Names
 
@@ -257,7 +265,8 @@
     ;; that are not in the database. This ability is useful when
     ;; reading from one OMOP database and writing results to a
     ;; different database.
-    (when (or (and foreign-key
+    (when (or (and (selected? format :unsafe-set-concept-id)
+                   foreign-key
                    (equal (mi:name (mi:table foreign-key)) "concept"))
               (not (or foreign-key (mi:primary-key? element))))
       (let ((setter (cond ((string= data-type "datetime")
@@ -325,9 +334,10 @@
                                             foreign-id-field-name :end 1)))
               (cond ((mi:required? element)
                      (j:out "this.~A = newValue;~%" field-name)
-                     (cond ((member (mi:data-type foreign-column)
-                                    '("integer" "bigint")
-                                    :test #'string=)
+                     (cond ((and (selected? format :unsafe-set-related)
+                                 (member (mi:data-type foreign-column)
+                                         '("integer" "bigint")
+                                     :test #'string=))
                             (j:comment "We allow explicitly settings the ~
                                         (ostensibly required) field to null ~
                                         and the associated foreign key to 0 so ~
