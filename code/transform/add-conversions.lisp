@@ -64,11 +64,17 @@
               (maybe-to-interval "date")))))
 
 (defmethod add-conversions ((data-model data-model))
-  (let* ((tables        (a:hash-table-values (tables data-model)))
-         (output-tables (remove-if-not #'output? tables)))
+  (let ((new-conversions))
+    ;; Automatically generate conversions for all tables according to
+    ;; general rules.
+    (let* ((tables        (a:hash-table-values (tables data-model)))
+           (output-tables (remove-if-not #'output? tables)))
+      (setf new-conversions (a:mappend #'make-conversions output-tables)))
+    ;; Add a specific conversion from a list of OMOP concepts to a
+    ;; System.Concept.
     (push (make-instance 'list-to-concept-conversion
                          :from-table (find-table "concept" data-model))
-          (conversions data-model))
-    (a:appendf (conversions data-model)
-               (a:mappend #'make-conversions output-tables)))
+          new-conversions)
+    ;; Install NEW-CONVERSIONS in DATA-MODEL.
+    (a:appendf (conversions data-model) new-conversions))
   data-model)
