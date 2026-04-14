@@ -49,12 +49,8 @@
                                                          :column     column)))
               (a:when-let ((value (find-column
                                    (lambda (name)
-                                     (or (search "value_as_number" name)
-                                         ;; DrugStrength
-                                         (string= name "amount_value")))))
+                                     (search "value_as_number" name))))
                            (unit  (find-column
-                                   ;; DrugStrength
-                                   (a:curry #'string= "amount_unit_concept_id")
                                    (a:curry #'search "unit_concept"))))
                 (list (make-instance 'to-quantity-conversion
                                      :from-table   table
@@ -74,6 +70,11 @@
     ;; System.Concept.
     (push (make-instance 'list-to-concept-conversion
                          :from-table (find-table "concept" data-model))
+          new-conversions)
+    ;; Add a specific conversion from a DrugStrength object to a
+    ;; System.Quantity object.
+    (push (make-instance 'drug-strength-to-quantity-conversion
+                         :from-table (find-table "drug_strength" data-model))
           new-conversions)
     ;; Install NEW-CONVERSIONS in DATA-MODEL.
     (a:appendf (conversions data-model) new-conversions))

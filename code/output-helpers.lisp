@@ -86,6 +86,44 @@
           (string-downcase (remove #\_ (string-capitalize (name (value-column element)))) :end 1)
           (string-downcase (remove #\_ (string-capitalize (without-id (name (unit-column element))))) :end 1)))
 
+(defmethod emit ((element drug-strength-to-quantity-conversion)
+                 (format  (eql :helpers))
+                 (target  stream))
+  (format
+   target
+   "case~@:_~
+    ~2@T// Try amount{Value,UnitConcept}~@:_~
+    ~2@Twhen OMOPObject.amountValue is not null and OMOPObject.amountUnitConcept is not null then~@:_~
+    ~2@T  System.Quantity{~@:_~
+    ~2@T    value: OMOPObject.amountValue,~@:_~
+    ~2@T    unit:  OMOPObject.amountUnitConcept.conceptCode~@:_~
+    ~2@T  }~@:_~
+    ~2@T// If amount is not available, try numerator{Value,UnitConcept} and optionally denominator{Value,UnitConcept}~@:_~
+    ~2@Twhen OMOPObject.numeratorValue is not null and OMOPObject.numeratorUnitConcept is not null then~@:_~
+    ~2@T  (1) _~@:_~
+    ~2@T    let numerator: System.Quantity{~@:_~
+    ~2@T                     value: OMOPObject.numeratorValue,~@:_~
+    ~2@T                     unit:  OMOPObject.numeratorUnitConcept.conceptCode~@:_~
+    ~2@T                   }~@:_~
+    ~2@T      return case~@:_~
+    ~2@T               // If there is no denominatorValue, just use the quantity computed from the numerator~@:_~
+    ~2@T               when OMOPObject.denominatorValue is null then~@:_~
+    ~2@T                 numerator~@:_~
+    ~2@T               // If there are both denominator{Value,UnitConcept}, compute the fraction numerator/denominator.~@:_~
+    ~2@T               when OMOPObject.denominatorUnitConcept is not null then~@:_~
+    ~2@T                 numerator / System.Quantity{~@:_~
+    ~2@T                               value: OMOPObject.denominatorValue,~@:_~
+    ~2@T                               unit:  OMOPObject.denominatorUnitConcept.conceptCode~@:_~
+    ~2@T                             }~@:_~
+    ~2@T               // If there is denominatorValue but no denominatorUnitConcept, we can't compute a valid Quantity~@:_~
+    ~2@T               else~@:_~
+    ~2@T                 null~@:_~
+    ~2@T             end~@:_~
+    ~2@T// If there is neither amount{Value,UnitConcept} nor numerator{Value,UnitConcept}, we can't compute a valid Quantity~@:_~
+    ~2@Telse~@:_~
+    ~2@T  null~@:_~
+    end~@:_~"))
+
 (defmethod emit ((element to-interval-conversion)
                  (format  (eql :helpers))
                  (target  stream))
