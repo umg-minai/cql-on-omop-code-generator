@@ -587,7 +587,7 @@
             (progn
               (j:comment
                "~@<contextName can be \"Person\" when a \"related context ~
-                \"retrieve\" is used as in~@:_~
+                retrieve\" is used as in~@:_~
                 ~2@Tdefine p: First([Person])~@:_~
                 ~2@Tdefine v: First([p -> ~A])~@:_~
                 .~@:>"
