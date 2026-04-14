@@ -16,10 +16,10 @@
           :from-end      t))
 
 (defun generate-code (model format target &key (transforms *default-transforms*))
-  "Generate code for VERSION of OMOP CDM with FORMAT into TARGET.
+  "Generate code for MODEL with FORMAT into TARGET.
 
 MODEL must be a `omop-cdm' instance which designates a source
-directory and version of the OMOP CDM. Currently, \"v5.3\" and
+directory and version of the OMOP CDM.  Currently, \"v5.3\" and
 \"v5.4\" are the only supported versions.
 
 FORMAT selects what should be generated.  Should be either
