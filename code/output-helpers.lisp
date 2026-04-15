@@ -124,6 +124,24 @@
     ~2@T  null~@:_~
     end~@:_~"))
 
+(defmethod emit ((element drug-exposure-to-quantity-conversion)
+                 (format  (eql :helpers))
+                 (target  stream))
+  (format
+   target
+   "(1) _~@:_~
+    ~2@Tlet drugCode:         ToCode(OMOPObject),~@:_~
+    ~2@T    // Parenthesis around the retrieve expression are required due to a quirk of~@:_~
+    ~2@T    // the CQL grammar.~@:_~
+    ~2@T    // Also note that the singleton from construct makes this function error if~@:_~
+    ~2@T    // there is more than DrugStrength associated with the code.~@:_~
+    ~2@T    strength:         singleton from ([DrugStrength: drugConcept ~~ drugCode]),~@:_~
+    ~2@T    strengthQuantity: ToQuantity(strength)~@:_~
+      ~4@Treturn if strengthQuantity is not null and OMOPObject.quantity is not null then~@:_~
+        ~6@TOMOPObject.quantity * strengthQuantity~@:_~
+      ~4@Telse~@:_~
+        ~6@Tnull~@:_"))
+
 (defmethod emit ((element to-interval-conversion)
                  (format  (eql :helpers))
                  (target  stream))

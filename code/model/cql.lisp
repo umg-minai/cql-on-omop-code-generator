@@ -50,6 +50,12 @@
    :to-type       "System.Quantity"
    :function-name "ToQuantity"))
 
+(defclass drug-exposure-to-quantity-conversion (conversion)
+  ()
+  (:default-initargs
+   :to-type       "System.Quantity"
+   :function-name "ToQuantity"))
+
 (defclass to-interval-conversion (conversion)
   ((%start-column :initarg :start-column
                   :reader  start-column)

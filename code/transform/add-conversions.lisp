@@ -76,6 +76,12 @@
     (push (make-instance 'drug-strength-to-quantity-conversion
                          :from-table (find-table "drug_strength" data-model))
           new-conversions)
+    ;; Add a specific conversion from a DrugExposure object to a
+    ;; System.Quantity object.  This conversion fails at runtime when
+    ;; there is more than one ingredient.
+    (push (make-instance 'drug-exposure-to-quantity-conversion
+                         :from-table (find-table "drug_exposure" data-model))
+          new-conversions)
     ;; Install NEW-CONVERSIONS in DATA-MODEL.
     (a:appendf (conversions data-model) new-conversions))
   data-model)
