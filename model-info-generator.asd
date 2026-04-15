@@ -56,7 +56,8 @@
                  :pathname   "code/cql"
                  :depends-on ("code")
                  :serial     t
-                 :components ((:file "package")
+                 :components ((:file "syntax")
+                              (:file "package")
                               (:file "output")))))
 
 (defsystem "model-info-generator/mimic"

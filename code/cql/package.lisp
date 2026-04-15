@@ -5,4 +5,6 @@
   (:local-nicknames
    (#:a  #:alexandria)
 
-   (#:mi #:model-info-generator)))
+   (#:mi #:model-info-generator)
+
+   (#:c  #:model-info-generator.cql.syntax)))
