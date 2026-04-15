@@ -46,7 +46,7 @@ At the moment, the code generator can produce three kinds of artifacts
    sbcl
    * (ql:quickload "model-info-generator")
    [...]
-   * (model-info-generator:generate-code (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.3") :java-project "/tmp/test/")
+   * (model-info-generator:generate-code (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.4") :java-project "/tmp/test/")
    ;; Loading OMOP CDM v5.4 from #P"/tmp/commondatamodel/"
    ;; Applying REMOVE-COHORT
    ;; Applying MANUAL-COMPOUND-KEYS
@@ -65,11 +65,11 @@ At the moment, the code generator can produce three kinds of artifacts
    and change the above invocation to
 
    ```cl
-   (model-info-generator:generate-code-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.3") :java-project "/tmp/test/")
+   (model-info-generator:generate-code-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.4") :java-project "/tmp/test/")
    ```
 
    To generate SQL statements that change the schema of an OMOP CDM-formatted database to be compatible with MIMIC data, use
 
    ```cl
-   (model-info-generator:generate-schema-changes-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.3") "/tmp/test/")
+   (model-info-generator:generate-schema-changes-for-mimic (model-info-generator:omop-cdm "/tmp/commondatamodel" "v5.4") "/tmp/test/")
    ```
