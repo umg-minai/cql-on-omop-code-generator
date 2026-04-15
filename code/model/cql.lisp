@@ -1,5 +1,7 @@
 (cl:in-package #:model-info-generator)
 
+(defgeneric from-type (conversion))
+
 (defclass conversion (pi:print-items-mixin)
   ((%from-table    :initarg :from-table
                    :reader  from-table)

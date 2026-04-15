@@ -23,7 +23,6 @@
                               ;; Output
                               (:file "output")
                               (:file "output-schema")
-                              (:file "output-helpers")
                               ;; Interface
                               (:file "interface")))
 
@@ -51,6 +50,13 @@
                  :serial     t
                  :components ((:file "syntax")
                               (:file "package")
+                              (:file "output")))
+
+                (:module     "cql"
+                 :pathname   "code/cql"
+                 :depends-on ("code")
+                 :serial     t
+                 :components ((:file "package")
                               (:file "output")))))
 
 (defsystem "model-info-generator/mimic"
