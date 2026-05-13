@@ -67,6 +67,36 @@
                  (subseq name 0 index)
                  (subseq name (+ index 3)))))
 
+;;; Helper functions
+
+(defun emit-equals-and-hash-code (class-name &rest field-names)
+  (j:annotation ("Override")
+    (j:method ("equals" '(("o" "Object")) "boolean")
+      (j:if  (lambda () (j:out "!(o instanceof ~A other)" class-name))
+             "return false;"
+             (lambda ()
+               (j:out "return ")
+               (apply #'j:emit-and
+                      ;; "other.getClass() == this.getClass()"
+                      (mapcar (lambda (field-name)
+                                (lambda ()
+                                  (j:out "Objects.equals(this.~A, other.~:*~A)"
+                                         field-name)))
+                              field-names))
+               (j:out ";")))))
+
+  (j:annotation ("Override")
+    (j:method ("hashCode" '() "int")
+      (j:out "return Objects.hash")
+      (pprint-logical-block (j::*stream* nil
+                                         :prefix "("
+                                         :suffix ");")
+        (loop :for field-name :in field-names
+              :for first? = t :then nil
+              :do (unless first?
+                    (j:out ", "))
+                  (j:out "this.~A" field-name))))))
+
 ;;;
 
 (defmethod mi:emit ((element mi:data-model)
@@ -190,6 +220,17 @@
         ;; For Person, generate a bestEffortBirthDate method.
         (when (string= name "person")
           (emit-best-effort-birth-date-method))
+
+        ;; Generate equals and hashCode methods.
+        (a:when-let ((c-key (mi:compound-key element)))
+          (emit-equals-and-hash-code class-name "compoundId"))
+        (a:when-let ((primary-key (mi:primary-key element)))
+          (let* ((column-name (mi:name primary-key))
+                 (field-name  (string-downcase
+                               (mi::cql-element<-omop-column format column-name)
+                               :end 1)))
+            (emit-equals-and-hash-code class-name field-name)))
+
         ;; If possible, generate a toString method.
         (j:annotation ("Override")
           (j:method ("toString" '() "String")
@@ -372,43 +413,12 @@
                 (mi:emit (make-field column) format target)
                 (j:out "~@:_"))
               columns)
-        ;; equals method
-        (j:annotation ("Override")
-          (j:method ("equals" '(("other" "Object")) "boolean")
-            (j:cond ("this == other"
-                     "return true;")
-                    ((lambda ()
-                       (j:out "other instanceof ~A otherInstance" name))
-                     (lambda ()
-                       (j:out "return ")
-                       (apply #'j:emit-and
-                              "other.getClass() == this.getClass()"
-                              (mapcar (lambda (column)
-                                        (let ((field-name (field-name<-omop-column
-                                                           format (mi:name column))))
-                                          (lambda ()
-                                            (j:out "Objects.equals(this.~A, otherInstance.~:*~A)"
-                                                   field-name))))
-                                      columns))
-                       (j:out ";")))
-                    (t
-                     "return false;"))))
-        ;; hashCode method
-        (j:annotation ("Override")
-          (j:method ("hashCode" '() "int")
-            (j:out "return Objects.hash")
-            (pprint-logical-block (j::*stream* nil
-                                               :prefix "("
-                                               :suffix ");")
-              (mapc (let ((first? t))
-                      (lambda (column)
-                        (if first?
-                            (setf first? nil)
-                            (j:out ", "))
-                        (let ((field-name (field-name<-omop-column
-                                           format (mi:name column))))
-                          (j:out "this.~A" field-name))))
-                    columns))))
+        ;; equals and hashCode methods
+        (let ((field-names (mapcar (lambda (column)
+                                     (field-name<-omop-column
+                                      format (mi:name column)))
+                                   columns)))
+          (apply #'emit-equals-and-hash-code name field-names))
         ;; toString method
         (j:annotation ("Override")
           (j:method ("toString" '() "String")
