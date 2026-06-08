@@ -154,7 +154,7 @@
             (c:comment "Parenthesis around the retrieve expression are ~
                         required due to a quirk of the CQL grammar.")
             (c:comment "Also note that the singleton from construct makes this ~
-                        function error if there is more than DrugStrength ~
+                        function error if there is more than one DrugStrength ~
                         associated with the code."))
           ("strength"         "singleton from ([DrugStrength: drugConcept ~ drugCode])")
           ("strengthQuantity" "ToQuantity(strength)"))
