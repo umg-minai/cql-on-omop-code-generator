@@ -19,6 +19,7 @@
    #:comment
    #:section
    #:literal
+   #:instance
    #:block
    #:let
    #:if
@@ -89,12 +90,6 @@
   (apply #'comment format-control format-arguments)
   (out "~@:_"))
 
-(defun literal (value)
-  (etypecase value
-    (string           (lambda () (out "'~A'" value))) ; TODO(moringenj): escape '
-    ((signed-byte 32) (lambda () (out "~D" value))) ; TODO(moringenj): check actual range
-    (signed-byte      (lambda () (out "~DL" value)))))
-
 (defun emitting-block (continuation newline?)
   (pprint-logical-block (*stream* (list continuation))
     (write-or-call continuation))
@@ -104,16 +99,44 @@
 (defmacro block ((&optional (newline? t)) &body body)
   `(emitting-block (lambda () ,@body) ,newline?))
 
-(defun emitting-indented-block (continuation newline? &key (indent 2))
-  (out "~@:_")
+(defun emitting-indented-block (continuation &key (initial-newline? t)
+                                                  (final-newline?   t)
+                                                  (indent           2))
+  (cl:if initial-newline?
+         (out "~@:_")
+         (out "~:_"))
   (cl:let ((prefix (coerce-to-indent indent)))
     (pprint-logical-block (*stream* (list continuation) :per-line-prefix prefix)
       (write-or-call continuation)))
-  (when newline?
+  (when final-newline?
     (out "~@:_")))
 
-(defmacro indented-block ((&optional (newline? t)) &body body)
-  `(emitting-indented-block (lambda () ,@body) ,newline?))
+(defmacro indented-block ((&optional (newline? t) (initial-newline? t))
+                          &body body)
+  `(emitting-indented-block (lambda () ,@body)
+                            :final-newline?   ,newline?
+                            :initial-newline? ,initial-newline?))
+
+(defun literal (value)
+  (etypecase value
+    (string           (lambda () (out "'~A'" value))) ; TODO(moringenj): escape '
+    ((signed-byte 32) (lambda () (out "~D" value))) ; TODO(moringenj): check actual range
+    (signed-byte      (lambda () (out "~DL" value)))))
+
+(defun instance (type &rest initargs)
+  (assert (zerop (mod (length initargs) 2)))
+  (write-or-call type)
+  (out "{")
+  (indented-block (nil nil)
+    (loop :for (name value) :on initargs :by #'cddr
+          :for first?       =   t :then nil
+          :do (unless first?
+                (out ", ~:_"))
+              (write-or-call (cl:if (keywordp name) (string-downcase name) name))
+              (out ": ")
+              (pprint-logical-block (*stream* nil)
+                (write-or-call value))))
+  (out "~:_}"))
 
 (defun emitting-let (bindings body)
   (out "(1) _")

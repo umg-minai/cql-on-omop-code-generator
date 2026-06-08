@@ -1,5 +1,13 @@
 (cl:in-package #:model-info-generator.cql)
 
+(defun emit-quantity (value unit)
+  (c:instance "System.Quantity" :value value :unit unit))
+
+(defun emit-code (code system)
+  (c:instance "System.Code" :code code :system system))
+
+(defun emit-concept (codes)
+  (c:instance "System.Concept" :codes codes))
 (defmethod mi:emit ((element mi:data-model)
                     (format  (eql :helpers))
                     (target  pathname))
@@ -42,22 +50,22 @@
 (defmethod mi:emit ((element mi::to-code-conversion)
                     (format  (eql :helpers))
                     (target  stream))
-  (let ((name (mi:name (mi:column element))))
-    (c:out "System.Code{~@:_~
-            ~2@Tcode:    ToString(OMOPObject.~A),~@:_~
-            ~2@Tsystem:  'https://fhir-terminology.ohdsi.org' //OMOPObject~@[.~A~].vocabularyId,~@:_~
-            //~2@Tdisplay: OMOPObject~:*~@[.~A~].conceptName~@:_~
-            }"
-           (string-downcase (remove #\_ (string-capitalize name)) :end 1)
-           (unless (equal (mi:name (mi::from-table element)) "concept")
-             (string-downcase (remove #\_ (string-capitalize (mi::without-id name))) :end 1)))))
+  (let* ((name             (mi:name (mi:column element)))
+         (code-property    (string-downcase (remove #\_ (string-capitalize name)) :end 1))
+         (concept-property (unless (equal (mi:name (mi::from-table element)) "concept")
+                             (string-downcase (remove #\_ (string-capitalize (mi::without-id name))) :end 1))))
+    (emit-code (lambda () (c:out "ToString(OMOPObject.~A)" code-property))
+               (lambda ()
+                 (c:out "'https://fhir-terminology.ohdsi.org' //OMOPObject~@[.~A~].vocabularyId"
+                        concept-property))
+                #++ :display #++ (lambda ()
+                                   (c:out "OMOPObject~@[.~A~].conceptName"
+                                          concept-property)))))
 
 (defmethod mi:emit ((element mi::to-concept-conversion)
                     (format  (eql :helpers))
                     (target  stream))
-  (c:out "System.Concept{~@:_~
-          ~2@Tcodes: { ToCode(OMOPObject) }~@:_~
-          }"))
+  (emit-concept "{ ToCode(OMOPObject) }"))
 
 (defmethod mi::from-type ((element mi::list-to-concept-conversion))
   (format nil "List<~A>" (call-next-method)))
@@ -65,9 +73,7 @@
 (defmethod mi:emit ((element mi::list-to-concept-conversion)
                     (format  (eql :helpers))
                     (target  stream))
-  (c:out "System.Concept{~@:_~
-          ~2@Tcodes: (OMOPObject) o return all ToCode(o)~@:_~
-          }"))
+  (emit-concept "(OMOPObject) o return all ToCode(o)"))
 
 (defmethod mi:emit ((element mi::to-quantity-conversion)
                     (format  (eql :helpers))
@@ -79,11 +85,11 @@
                   (lambda () (c:out "OMOPObject.~A is null" unit-attribute))))
           "null"
           (lambda ()
-            (c:out "System.Quantity{~@:_~
-                    ~2@Tvalue: OMOPObject.~A,~@:_~
-                    ~2@Tunit:  OMOPObject.~A.conceptCode~@:_~
-                    }"
-                   value-attribute unit-attribute)))))
+            (emit-quantity (lambda ()
+                             (c:out "OMOPObject.~A" value-attribute))
+                           (lambda ()
+                             (c:out "OMOPObject.~A.conceptCode"
+                                    unit-attribute)))))))
 
 (defmethod mi:emit ((element mi::drug-strength-to-quantity-conversion)
                     (format  (eql :helpers))
@@ -92,10 +98,8 @@
                              "OMOPObject.amountUnitConcept is not null"))
            (lambda ()
              (c:comment "Use amount{Value,UnitConcept} if available.")
-             (c:out "System.Quantity{~@:_~
-                     ~2@Tvalue: OMOPObject.amountValue,~@:_~
-                     ~2@Tunit:  OMOPObject.amountUnitConcept.conceptCode~@:_~
-                     }")))
+             (emit-quantity "OMOPObject.amountValue"
+                            "OMOPObject.amountUnitConcept.conceptCode")))
           ((lambda () (c:and "OMOPObject.numeratorValue is not null"
                              "OMOPObject.numeratorUnitConcept is not null"))
            (lambda ()
@@ -103,10 +107,9 @@
                          numerator{Value,UnitConcept} and optionally ~
                          denominator{Value,UnitConcept}")
              (c:let (("numerator" (lambda ()
-                                    (c:out "System.Quantity{~@:_~
-                                            ~2@Tvalue: OMOPObject.numeratorValue,~@:_~
-                                            ~2@Tunit:  OMOPObject.numeratorUnitConcept.conceptCode~@:_~
-                                            }"))))
+                                    (emit-quantity
+                                     "OMOPObject.numeratorValue"
+                                     "OMOPObject.numeratorUnitConcept.conceptCode"))))
                (lambda ()
                  (c:cond ("OMOPObject.denominatorValue is null"
                           (lambda ()
@@ -116,10 +119,10 @@
                             (c:out "numerator")))
                          ("OMOPObject.denominatorUnitConcept is not null"
                           (lambda ()
-                            (c:out "numerator / System.Quantity{~@:_~
-                                    ~2@Tvalue: OMOPObject.denominatorValue,~@:_~
-                                    ~2@Tunit:  OMOPObject.denominatorUnitConcept.conceptCode~@:_~
-                                    }")))
+                            (c:out "numerator / ")
+                            (emit-quantity
+                             "OMOPObject.denominatorValue"
+                             "OMOPObject.denominatorUnitConcept.conceptCode")))
                          (t
                           (lambda ()
                             (c:comment "If there is denominatorValue but no ~
