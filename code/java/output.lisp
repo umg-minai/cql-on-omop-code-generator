@@ -69,33 +69,63 @@
 
 ;;; Helper functions
 
-(defun emit-equals-and-hash-code (class-name &rest field-names)
+(defun emit-equals-and-hash-code (class-name equals-body hash-code-body)
   (j:annotation ("Override")
     (j:method ("equals" '(("o" "Object")) "boolean")
-      (j:if  (lambda () (j:out "!(o instanceof ~A other)" class-name))
-             "return false;"
-             (lambda ()
-               (j:out "return ")
-               (apply #'j:emit-and
-                      ;; "other.getClass() == this.getClass()"
-                      (mapcar (lambda (field-name)
-                                (lambda ()
-                                  (j:out "Objects.equals(this.~A, other.~:*~A)"
-                                         field-name)))
-                              field-names))
-               (j:out ";")))))
-
+      (j:if (lambda () (j:out "!(o instanceof ~A other)" class-name))
+            "return false;"
+            (lambda ()
+              (funcall equals-body "this" "other")))))
   (j:annotation ("Override")
     (j:method ("hashCode" '() "int")
-      (j:out "return Objects.hash")
-      (pprint-logical-block (j::*stream* nil
-                                         :prefix "("
-                                         :suffix ");")
-        (loop :for field-name :in field-names
-              :for first? = t :then nil
-              :do (unless first?
-                    (j:out ", "))
-                  (j:out "this.~A" field-name))))))
+      (funcall hash-code-body "this"))))
+
+(defun emit-equals-and-hash-code-for-fields (class-name &rest field-names)
+  (emit-equals-and-hash-code
+   class-name
+   (lambda (this-variable other-variable)
+     (j:out "return ")
+     (apply #'j:emit-and
+            (mapcar (lambda (field-name)
+                      (lambda ()
+                        (j:out "Objects.equals(~A.~A, ~A.~A)"
+                               this-variable  field-name
+                               other-variable field-name)))
+                    field-names))
+     (j:out ";"))
+   (lambda (this-variable)
+     (j:out "return Objects.hash")
+     (pprint-logical-block (j::*stream* nil
+                                        :prefix "("
+                                        :suffix ");")
+       (loop :for field-name :in field-names
+             :for first? = t :then nil
+             :do (unless first?
+                   (j:out ", "))
+                 (j:out "~A.~A" this-variable field-name))))))
+
+(defun emit-hibernate-id (id-variable object-variable identity-field)
+  (j:out "final Object ~A;~%" id-variable)
+  (j:if (lambda () (j:out "~A instanceof HibernateProxy proxy" object-variable))
+        (lambda () (j:out "~A = proxy.getHibernateLazyInitializer().getIdentifier();"
+                          id-variable))
+        (lambda () (j:out "~A = ~A.~A;"
+                          id-variable object-variable identity-field)))
+  (j:out "~%"))
+
+(defun emit-equals-and-hash-code-for-identity (class-name identity-field)
+  (emit-equals-and-hash-code
+   class-name
+   (lambda (this-variable other-variable)
+     (let ((this-id  "thisId")
+           (other-id "otherId"))
+       (emit-hibernate-id this-id  this-variable  identity-field)
+       (emit-hibernate-id other-id other-variable identity-field)
+       (j:out "return Objects.equals(~A, ~A);" this-id other-id)))
+   (lambda (this-variable)
+     (let ((id "id"))
+       (emit-hibernate-id id this-variable identity-field)
+       (j:out "return Objects.hash(~A);" id)))))
 
 ;;;
 
@@ -189,6 +219,7 @@
          (columns    (mi:columns element))
          (concept?   (string= name "concept")))
     (j:out "import jakarta.persistence.*;~@
+            import org.hibernate.proxy.HibernateProxy;~@
             import org.opencds.cqf.cql.engine.runtime.Date;~@
             import org.opencds.cqf.cql.engine.runtime.DateTime;~@
             ~@
@@ -223,13 +254,13 @@
 
         ;; Generate equals and hashCode methods.
         (a:when-let ((c-key (mi:compound-key element)))
-          (emit-equals-and-hash-code class-name "compoundId"))
+          (emit-equals-and-hash-code-for-identity class-name "compoundId"))
         (a:when-let ((primary-key (mi:primary-key element)))
           (let* ((column-name (mi:name primary-key))
                  (field-name  (string-downcase
                                (mi::cql-element<-omop-column format column-name)
                                :end 1)))
-            (emit-equals-and-hash-code class-name field-name)))
+            (emit-equals-and-hash-code-for-identity class-name field-name)))
 
         ;; If possible, generate a toString method.
         (j:annotation ("Override")
@@ -418,7 +449,7 @@
                                      (field-name<-omop-column
                                       format (mi:name column)))
                                    columns)))
-          (apply #'emit-equals-and-hash-code name field-names))
+          (apply #'emit-equals-and-hash-code-for-fields name field-names))
         ;; toString method
         (j:annotation ("Override")
           (j:method ("toString" '() "String")
