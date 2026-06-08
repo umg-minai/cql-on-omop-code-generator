@@ -8,6 +8,13 @@
 
 (defun emit-concept (codes)
   (c:instance "System.Concept" :codes codes))
+
+(defun replace-u-unit (expression)
+  (c:comment "The unit [U] can occur in OMOP CDM data but the UCUM service ~
+              cannot process this unit. [U] should be equivalent to [IU], so ~
+              perform the replacement.")
+  (c:if (lambda () (c:out "~A = '[U]'" expression)) "'[IU]'" expression))
+
 (defmethod mi:emit ((element mi:data-model)
                     (format  (eql :helpers))
                     (target  pathname))
@@ -99,7 +106,9 @@
            (lambda ()
              (c:comment "Use amount{Value,UnitConcept} if available.")
              (emit-quantity "OMOPObject.amountValue"
-                            "OMOPObject.amountUnitConcept.conceptCode")))
+                            (lambda ()
+                              (replace-u-unit
+                               "OMOPObject.amountUnitConcept.conceptCode")))))
           ((lambda () (c:and "OMOPObject.numeratorValue is not null"
                              "OMOPObject.numeratorUnitConcept is not null"))
            (lambda ()
@@ -109,7 +118,9 @@
              (c:let (("numerator" (lambda ()
                                     (emit-quantity
                                      "OMOPObject.numeratorValue"
-                                     "OMOPObject.numeratorUnitConcept.conceptCode"))))
+                                     (lambda ()
+                                       (replace-u-unit
+                                        "OMOPObject.numeratorUnitConcept.conceptCode"))))))
                (lambda ()
                  (c:cond ("OMOPObject.denominatorValue is null"
                           (lambda ()
