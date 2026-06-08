@@ -122,24 +122,23 @@
                                        (replace-u-unit
                                         "OMOPObject.numeratorUnitConcept.conceptCode"))))))
                (lambda ()
-                 (c:cond ("OMOPObject.denominatorValue is null"
+                 (c:if "OMOPObject.denominatorUnitConcept is not null"
+                       (lambda ()
+                         (c:out "numerator / ")
+                         (emit-quantity
                           (lambda ()
-                            (c:comment "If there is no denominatorValue, just ~
-                                        use the quantity computed from the ~
-                                        numerator.")
-                            (c:out "numerator")))
-                         ("OMOPObject.denominatorUnitConcept is not null"
-                          (lambda ()
-                            (c:out "numerator / ")
-                            (emit-quantity
-                             "OMOPObject.denominatorValue"
-                             "OMOPObject.denominatorUnitConcept.conceptCode")))
-                         (t
-                          (lambda ()
-                            (c:comment "If there is denominatorValue but no ~
-                                        denominatorUnitConcept, we can't ~
-                                        compute a valid Quantity")
-                            (c:out "null"))))))))
+                            (c:if "OMOPObject.denominatorValue is not null"
+                                  "OMOPObject.denominatorValue"
+                                  (lambda ()
+                                    (c:comment "If there is no ~
+                                                denominatorValue, use 1 ~
+                                                instead.")
+                                    (c:out "1"))))
+                          "OMOPObject.denominatorUnitConcept.conceptCode"))
+                       (lambda ()
+                         (c:comment "If there is no denominatorUnitConcept use ~
+                                   just the numerator.")
+                         (c:out "numerator")))))))
           (t
            (lambda ()
              (c:comment "If there is neither amount{Value,UnitConcept} nor ~
