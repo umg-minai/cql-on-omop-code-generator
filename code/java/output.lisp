@@ -327,21 +327,29 @@
                         (t
                          (make-getter element)))))
       (mi:emit getter format target))
-    ;; Setter method. If the column has a foreign key, the setter
-    ;; would set the id but not fetch the target entity. Thus, when a
+    ;; Setter method.  If the column has a foreign key, the setter
+    ;; would set the id but not fetch the target entity.  Thus, when a
     ;; foreign key is present, the setter method that accepts a target
     ;; entity instance has to be used.
     ;;
     ;; That said, we still generate a setter if the foreign table is
     ;; "concept" so that users can create references to OMOP concepts
-    ;; that are not in the database. This ability is useful when
+    ;; that are not in the database.  This ability is useful when
     ;; reading from one OMOP database and writing results to a
-    ;; different database.
-    (cond ((or (and (selected? format :unsafe-set-concept-id)
-                    foreign-key
-                    (equal (mi:name (mi:table foreign-key)) "concept")))
+    ;; different database.  Similarly, we generate a setter for the
+    ;; concept_id column in the concept table so that Concept
+    ;; instances can be created "out of thin air".
+    (cond ((and (selected? format :unsafe-set-concept-id)
+                (not foreign-key)
+                (equal (mi:name element) "concept_id"))
+           (j:docstring "Warning: This setter can be used to create invalid ~
+                         concepts.")
+           (mi:emit (make-setter element) format target))
+          ((and (selected? format :unsafe-set-concept-id)
+                foreign-key
+                (equal (mi:name (mi:table foreign-key)) "concept"))
            (j:docstring "Warning: This setter can be used to create dangling ~
-                         references to (non-existing) concepts. ")
+                         references to (non-existing) concepts.")
            (mi:emit (make-setter element) format target))
           ((not (or foreign-key (mi:primary-key? element)))
            (let ((setter (cond ((string= data-type "datetime")
